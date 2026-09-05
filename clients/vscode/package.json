@@ -1,0 +1,87 @@
+{
+  "name": "basically-vscode",
+  "displayName": "Basically Language Support",
+  "description": "Editor client for the Basically language server",
+  "version": "0.1.0",
+  "publisher": "basically",
+  "license": "MIT",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/basically/basically-editor-extensions.git",
+    "directory": "clients/vscode"
+  },
+  "engines": {
+    "vscode": "^1.85.0",
+    "node": ">=20"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "activationEvents": [
+    "onLanguage:basically"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "basically",
+        "aliases": [
+          "Basically",
+          "basically"
+        ],
+        "extensions": [
+          ".bas",
+          ".basically"
+        ]
+      }
+    ],
+    "configuration": {
+      "title": "Basically",
+      "properties": {
+        "basically.server.path": {
+          "type": "string",
+          "default": "",
+          "description": "Absolute path to the lsp-server binary. When empty, the bundled executables/ copy is used, falling back to a lookup on PATH."
+        },
+        "basically.server.args": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Extra arguments passed to the language server process."
+        },
+        "basically.trace.server": {
+          "type": "string",
+          "enum": [
+            "off",
+            "messages",
+            "verbose"
+          ],
+          "default": "off",
+          "description": "Trace the communication between VS Code and the language server."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "tsc --noEmit -p ./",
+    "clean": "rimraf out",
+    "prepackage": "node -e \"require('node:fs').mkdirSync('../../dist', { recursive: true })\"",
+    "package": "vsce package --no-dependencies --out ../../dist/basically-vscode.vsix"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^2.26.1",
+    "rimraf": "^5.0.7",
+    "typescript": "^5.4.5"
+  }
+}

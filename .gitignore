@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Build output
+out/
+dist/
+build/
+*.tsbuildinfo
+
+# Packaged extensions
+*.vsix
+
+# Downloaded / bundled language server binaries
+executables/
+clients/*/executables/
+
+# Temporary build artifacts
+*.log
+*.tmp
+tmp/
+.temp/
+.cache/
+npm-debug.log*
+yarn-error.log*
+
+# Editor / OS noise
+.DS_Store
+Thumbs.db
+.vscode-test/

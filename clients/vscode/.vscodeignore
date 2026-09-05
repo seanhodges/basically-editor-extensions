@@ -1,0 +1,24 @@
+# Sources — only the compiled output in out/ ships
+src/**
+**/*.ts
+!out/**/*.d.ts
+
+# Build configuration
+tsconfig.json
+.eslintrc*
+.editorconfig
+.gitignore
+.vscodeignore
+
+# Tests
+**/*.test.js
+**/*.test.js.map
+**/test/**
+**/__tests__/**
+.vscode-test/**
+
+# Source maps and tooling noise
+**/*.map
+node_modules/**
+**/.DS_Store
+**/*.log

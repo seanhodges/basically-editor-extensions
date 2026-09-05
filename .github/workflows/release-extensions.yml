@@ -1,0 +1,70 @@
+name: Release extensions
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-extensions-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Publish clients
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      # Placeholder — swap for the real download once core releases are public.
+      - name: Fetch core LSP server binary
+        run: |
+          mkdir -p clients/vscode/executables
+          echo "TODO: download the lsp-server binary matching ${GITHUB_REF_NAME}"
+
+      - name: Package clients
+        run: npm run package
+
+      # Requires a Marketplace PAT stored as the VSCE_PAT repository secret.
+      - name: Publish to the VS Code Marketplace
+        if: ${{ env.VSCE_PAT != '' }}
+        working-directory: clients/vscode
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: |
+          echo "TODO: npx @vscode/vsce publish --packagePath ../../dist/basically-vscode.vsix"
+
+      # Requires an Open VSX token stored as the OVSX_PAT repository secret.
+      - name: Publish to Open VSX
+        if: ${{ env.OVSX_PAT != '' }}
+        env:
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
+        run: |
+          echo "TODO: npx ovsx publish dist/basically-vscode.vsix -p \"$OVSX_PAT\""
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ github.ref_name }}
+          generate_release_notes: true
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          files: |
+            dist/*.vsix

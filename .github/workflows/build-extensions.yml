@@ -1,0 +1,77 @@
+name: Build extensions
+
+on:
+  # Fired by the core language-server repository after it publishes a release:
+  #   curl -X POST -H "Accept: application/vnd.github+json" \
+  #     -H "Authorization: Bearer $TOKEN" \
+  #     https://api.github.com/repos/<owner>/basically-editor-extensions/dispatches \
+  #     -d '{"event_type":"lsp-server-updated","client_payload":{"server_version":"1.2.3"}}'
+  repository_dispatch:
+    types: [lsp-server-updated]
+  workflow_dispatch:
+    inputs:
+      server_version:
+        description: Core LSP server version to bundle (blank = latest)
+        required: false
+        type: string
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: build-extensions-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build & package clients
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Resolve server version
+        id: server
+        env:
+          DISPATCH_VERSION: ${{ github.event.client_payload.server_version }}
+          INPUT_VERSION: ${{ inputs.server_version }}
+        run: |
+          VERSION="${DISPATCH_VERSION:-${INPUT_VERSION:-latest}}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Building clients against lsp-server $VERSION"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      # The server binary is never committed. Replace this with a real download
+      # from the core repository's releases once they are published.
+      - name: Fetch core LSP server binary
+        env:
+          SERVER_VERSION: ${{ steps.server.outputs.version }}
+        run: |
+          mkdir -p clients/vscode/executables
+          echo "TODO: download lsp-server ($SERVER_VERSION) into clients/vscode/executables/"
+
+      - name: Package clients
+        run: npm run package
+
+      - name: Upload packaged extensions
+        uses: actions/upload-artifact@v4
+        with:
+          name: extensions-${{ steps.server.outputs.version }}
+          path: |
+            dist/*.vsix
+          if-no-files-found: warn
+          retention-days: 14
