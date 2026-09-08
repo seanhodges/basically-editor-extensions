@@ -1,42 +1,65 @@
 # Basically — Notepad++ client
 
 Notepad++ has no first-party LSP support, so integration goes through one of
-three routes. This directory holds the notes and scaffolding for whichever route
-we ship; no build is wired into the root workspace yet.
+three routes. This directory holds the notes for whichever route we ship; no
+build is wired into the root workspace yet.
+
+## The server
+
+Whichever route is taken, the server is the same one every other client here
+starts — the Basically toolchain from npm:
+
+```
+npm install -g @ba.sical.ly/cli
+basically lsp --stdio
+```
+
+It is a Node program (22 or newer), not an executable to bundle, and it needs no
+ROM. On Windows that installs `basically.cmd` alongside `basically`; a plugin
+spawning it directly should invoke `node` with
+`%APPDATA%\npm\node_modules\@ba.sical.ly\cli\dist\cli.mjs`, because `.cmd`
+launchers and pipes get along badly.
+
+Whatever the route, the plugin's whole job is to spawn that command and speak
+LSP over its stdio. There is no Notepad++-specific server, and nothing to build
+in the core repository.
 
 ## Option A — PythonScript bridge (fastest to prototype)
 
 [PythonScript](https://github.com/bruderstein/PythonScript) runs Python inside
 Notepad++ and can speak JSON-RPC over a subprocess pipe.
 
-1. Install PythonScript via *Plugins → Plugins Admin*.
+1. Install PythonScript via _Plugins → Plugins Admin_.
 2. Drop a `basically_lsp.py` into
    `%APPDATA%\Notepad++\plugins\Config\PythonScript\scripts\`.
 3. The script should:
-   - spawn `lsp-server.exe` with `subprocess.Popen(..., stdin=PIPE, stdout=PIPE)`,
+   - spawn the server with `subprocess.Popen(..., stdin=PIPE, stdout=PIPE)`,
    - frame messages with `Content-Length: <n>\r\n\r\n<body>` per the LSP spec,
-   - send `initialize` / `initialized`, then `textDocument/didOpen` on
+   - send `initialize` with `initializationOptions: {"machine": "zx81"}` (or
+     leave it out and rely on each listing's `#MACHINE` line), then
+     `initialized`, then `textDocument/didOpen` on
      `NOTIFICATION.BUFFERACTIVATED`,
    - forward `textDocument/didChange` from `SCINTILLANOTIFICATION.MODIFIED`,
    - render `textDocument/publishDiagnostics` with Scintilla indicators
      (`editor.indicSetStyle` / `editor.indicatorFillRange`).
-4. Register it as a startup script under *Plugins → PythonScript → Configuration*.
+4. Register it as a startup script under _Plugins → PythonScript →
+   Configuration_.
 
 Trade-off: easy to iterate on, but every user must install PythonScript, and
 completion/hover UI is limited to what Scintilla calltips provide.
 
-## Option B — NppLSP / existing LSP plugin
+## Option B — an existing LSP plugin
 
-If an LSP-capable Notepad++ plugin (e.g. `NppLSP`) is acceptable as a
-dependency, we ship only a config fragment rather than code:
+If an LSP-capable Notepad++ plugin is acceptable as a dependency, we ship only a
+config fragment rather than code. Most take a shape close to:
 
 ```json
 {
   "languages": {
     "basically": {
-      "extensions": [".bas", ".basically"],
-      "command": ["lsp-server.exe"],
-      "rootPatterns": [".git", "basically.toml"]
+      "extensions": [".bas"],
+      "command": ["basically", "lsp", "--stdio"],
+      "rootPatterns": [".git"]
     }
   }
 }
@@ -57,30 +80,25 @@ clients/notepadpp/
 ├── src/
 │   ├── PluginDefinition.cpp  # setInfo, getFuncsArray, beNotified, messageProc
 │   ├── DllMain.cpp
-│   ├── LspClient.cpp         # stdio JSON-RPC transport to lsp-server.exe
+│   ├── LspClient.cpp         # stdio JSON-RPC transport to the server
 │   └── Diagnostics.cpp       # Scintilla indicator rendering
-├── include/
-│   └── npp/                  # PluginInterface.h, Scintilla.h from the Npp SDK
-└── executables/
-    └── lsp-server.exe        # downloaded by CI, not committed
+└── include/
+    └── npp/                  # PluginInterface.h, Scintilla.h from the Npp SDK
 ```
 
 Notes:
 
-- Notepad++ loads plugins from `%ProgramFiles%\Notepad++\plugins\BasicallyLsp\BasicallyLsp.dll`;
-  the folder name **must** match the DLL name.
+- Notepad++ loads plugins from
+  `%ProgramFiles%\Notepad++\plugins\BasicallyLsp\BasicallyLsp.dll`; the folder
+  name **must** match the DLL name.
 - Build both `x64` and `x86` — Notepad++ ships both architectures and will not
   load a mismatched DLL.
 - Link statically (`/MT`) so no VC++ redistributable is required.
-- Distribute as a zip containing the DLL plus `executables/lsp-server.exe`;
-  submission to the Plugins Admin list needs a PR against
+- The plugin still shells out to the Node server; it does not embed one.
+  Distribute the DLL alone and tell users to install the toolchain, or detect a
+  missing `basically` and say so.
+- Submission to the Plugins Admin list needs a PR against
   [`nppPluginList`](https://github.com/notepad-plus-plus/nppPluginList).
-
-## Server binary
-
-Whichever route is used, the server is the same `lsp-server.exe` produced by the
-core repository. CI downloads it into `clients/notepadpp/executables/` at package
-time — it is git-ignored, never committed.
 
 ## Status
 

@@ -2,14 +2,16 @@
   "name": "basically-editor-extensions",
   "version": "0.1.0",
   "private": true,
-  "description": "Monorepo of editor/language-server clients for the Basically LSP server",
-  "license": "MIT",
+  "description": "Editor clients for the Basically language server",
+  "license": "GPL-3.0-or-later",
   "workspaces": [
     "clients/*"
   ],
   "scripts": {
     "build": "npm run compile --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "server": "node scripts/fetch-server.mjs",
     "package": "npm run package --workspaces --if-present",
     "clean": "npm run clean --workspaces --if-present"
   },

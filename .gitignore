@@ -10,9 +10,8 @@ build/
 # Packaged extensions
 *.vsix
 
-# Downloaded / bundled language server binaries
-executables/
-clients/*/executables/
+# The language server, fetched from npm at build time by scripts/fetch-server.mjs
+clients/*/server/
 
 # Temporary build artifacts
 *.log
