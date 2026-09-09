@@ -1,23 +1,38 @@
 {
   "name": "basically-vscode",
-  "displayName": "Basically Language Support",
-  "description": "Editor client for the Basically language server",
+  "displayName": "Basically",
+  "description": "Language support for retro BASIC — problems, completion, hover, jump-to-definition, outline and colour, for the machine each listing is written for.",
   "version": "0.1.0",
   "publisher": "basically",
-  "license": "MIT",
+  "license": "GPL-3.0-or-later",
   "private": true,
   "repository": {
     "type": "git",
-    "url": "https://github.com/basically/basically-editor-extensions.git",
+    "url": "https://github.com/seanhodges/basically-editor-extensions.git",
     "directory": "clients/vscode"
   },
+  "homepage": "https://ba.sical.ly/docs/guide/language-server",
   "engines": {
     "vscode": "^1.85.0",
     "node": ">=20"
   },
   "categories": [
-    "Programming Languages"
+    "Programming Languages",
+    "Linters"
   ],
+  "keywords": [
+    "basic",
+    "retrocomputing",
+    "zx81",
+    "commodore 64",
+    "bbc micro"
+  ],
+  "basically": {
+    "server": {
+      "package": "@ba.sical.ly/cli",
+      "version": "0.1.1"
+    }
+  },
   "activationEvents": [
     "onLanguage:basically"
   ],
@@ -27,30 +42,63 @@
       {
         "id": "basically",
         "aliases": [
-          "Basically",
+          "BASIC (Basically)",
           "basically"
         ],
         "extensions": [
-          ".bas",
-          ".basically"
-        ]
+          ".bas"
+        ],
+        "firstLine": "^\\s*#MACHINE\\b",
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "semanticTokenScopes": [
+      {
+        "language": "basically",
+        "scopes": {
+          "label": [
+            "entity.name.label.basically",
+            "constant.numeric.line-number"
+          ],
+          "atom": [
+            "constant.character.basically",
+            "constant.character"
+          ]
+        }
+      }
+    ],
+    "commands": [
+      {
+        "command": "basically.selectMachine",
+        "title": "Choose the machine to check against",
+        "category": "Basically"
+      },
+      {
+        "command": "basically.restartServer",
+        "title": "Restart the language server",
+        "category": "Basically"
       }
     ],
     "configuration": {
       "title": "Basically",
       "properties": {
+        "basically.machine": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "The machine every listing is checked against, by its id or its full name (`zx81`, `BBC Micro`). A listing that declares its own machine with a `#MACHINE` line ignores this, so one project can hold programs for several machines. Left empty, the machine is worked out from the listing where that is possible, and reported as a problem where it is not. Run **Basically: Choose the machine to check against** to pick from the machines this server has.",
+          "scope": "resource"
+        },
         "basically.server.path": {
           "type": "string",
           "default": "",
-          "description": "Absolute path to the lsp-server binary. When empty, the bundled executables/ copy is used, falling back to a lookup on PATH."
+          "markdownDescription": "Path to the `basically` command, or to a checkout's `cli.mjs`, to serve from instead of the copy bundled with this extension. For working on the toolchain itself.",
+          "scope": "machine-overridable"
         },
-        "basically.server.args": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "default": [],
-          "description": "Extra arguments passed to the language server process."
+        "basically.server.nodePath": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Path to the Node.js used to run the bundled server. Left empty, `node` from your PATH is used where it is new enough, and the editor's own Node otherwise.",
+          "scope": "machine-overridable"
         },
         "basically.trace.server": {
           "type": "string",
@@ -60,7 +108,8 @@
             "verbose"
           ],
           "default": "off",
-          "description": "Trace the communication between VS Code and the language server."
+          "description": "Trace the conversation between VS Code and the language server, in the Basically output channel.",
+          "scope": "window"
         }
       }
     }
@@ -70,8 +119,9 @@
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "lint": "tsc --noEmit -p ./",
-    "clean": "rimraf out",
-    "prepackage": "node -e \"require('node:fs').mkdirSync('../../dist', { recursive: true })\"",
+    "test": "node --test test/*.test.mjs",
+    "clean": "rimraf out server",
+    "prepackage": "node ../../scripts/fetch-server.mjs && npm run compile && node -e \"require('node:fs').mkdirSync('../../dist', { recursive: true })\"",
     "package": "vsce package --no-dependencies --out ../../dist/basically-vscode.vsix"
   },
   "dependencies": {
