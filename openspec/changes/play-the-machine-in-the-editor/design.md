@@ -18,11 +18,11 @@ somewhere to show what comes back.
 
 The client cannot grow this capability alone. The toolchain must serve its
 operations conversation over standard streams, and must offer a way to play a
-held machine that answers with an address a web view can be pointed at. Both are
-proposed in the `basically` repository as `play-a-machine-from-another-app`,
-against its `machine-play` and `headless-cli` capabilities. Nothing designed
-here asks the server for anything beyond what that change offers, and none of it
-can be implemented before that ships.
+held machine that answers with an address a web view can be pointed at. Both
+came from `play-a-machine-from-another-app` in the `basically` repository,
+against its `machine-play` and `headless-cli` capabilities, and both are served
+by `@ba.sical.ly/cli` from 0.1.5. Nothing designed here asks the server for
+anything beyond them.
 
 ## Goals / Non-Goals
 
@@ -154,12 +154,13 @@ a guarantee it already has.
 
 ## Risks / Trade-offs
 
-- **Nothing here can be built or tested against a published server** → The
-  toolchain change will not have shipped when this work starts. Mitigated by the
-  existing override that points the tests at a toolchain checkout; the pinned
-  version moves in its single place only once a release carries what this needs,
-  and until then a green run means green against a checkout and must be reported
-  that way rather than as a release-ready result.
+- **The pin has to move before any of this can be tested** → The server the
+  client pins today serves neither the operations conversation over streams nor
+  playing, so a suite run before the pin moves proves nothing about this work.
+  Mitigated by the pin being one edit in one place, and by the existing override
+  that points the tests at a toolchain checkout for anything not yet released.
+  A run against a server that predates 0.1.5 must be reported as not having
+  exercised this at all, rather than as a pass.
 - **Remote development may not carry the frame** → Where the extension runs
   remotely and the window is local, the address is on the wrong side. The
   editor's external-URI mapping is designed for this, but it is the one

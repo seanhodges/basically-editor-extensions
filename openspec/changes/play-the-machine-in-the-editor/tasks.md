@@ -101,10 +101,11 @@ server's manifest, so building and fetching come first.
 - [ ] 8.4 `npm test`
 - [ ] 8.5 `npm run package`, required because the manifest gains a command and
       the pinned version moves.
-- [ ] 8.6 Until the toolchain change is published, run the suite against a
-      checkout — `BASICALLY_SERVER_PATH=/path/to/basically/scripts/basically npm
-      test` — and report a pass as green against a checkout, not as
-      release-ready.
+- [ ] 8.6 Confirm the suite ran against a server that actually serves this — the
+      pin at 0.1.5 or later, or a checkout via
+      `BASICALLY_SERVER_PATH=/path/to/basically/scripts/basically npm test`. A
+      pass against an older server has exercised none of this and must be
+      reported that way.
 - [ ] 8.7 No Vim client check applies: 6.2 touches only the Notepad++ notes and
       nothing under `clients/vim/`. Should any task come to touch it, name the
       manual check that was run here.
