@@ -43,7 +43,11 @@ const launch = launchFor(
   },
 );
 
+const DECLARED_URI = 'file:///declared.bas';
+const UNDECLARED_URI = 'file:///undeclared.bas';
+/** A listing naming its machine, with an unterminated string on its second line. */
 const DECLARED = '#MACHINE zx81\n10 PRINT "HI\n20 GOTO 10\n';
+/** A listing several machines would read equally, so none can be inferred. */
 const UNDECLARED = '10 PRINT "HI"\n';
 
 describe('the bundled server', () => {
@@ -59,6 +63,12 @@ describe('the bundled server', () => {
         : {},
     );
     capabilities = (await client.initialize({})).capabilities;
+    // Both listings are opened once here rather than by whichever test needs
+    // one first: the server answers about open documents, and a test that
+    // depends on an earlier test having opened its document breaks the moment
+    // the two are reordered or one is run alone.
+    client.open(DECLARED_URI, DECLARED);
+    client.open(UNDECLARED_URI, UNDECLARED);
   });
 
   after(async () => {
@@ -91,13 +101,20 @@ describe('the bundled server', () => {
     }
   });
 
-  it('names the two kinds of colour the manifest styles, if it serves colour', () => {
-    // Colour arrives with the server, not with this client, so an older pinned
-    // server simply has none. What must never happen is a server that serves
-    // colour in kinds the manifest has no scope for, which would show as
-    // uncoloured runs nobody could explain.
+  it('serves colour for a whole program and for one range of it', () => {
     const provider = capabilities.semanticTokensProvider;
-    if (!provider) return;
+    assert.ok(provider, 'the server serves no colour');
+    // Both, because the client relies on both: an editor showing one screen of
+    // a long listing asks for the range rather than the whole.
+    assert.ok(provider.full, 'no whole-program colour');
+    assert.ok(provider.range, 'no per-range colour');
+  });
+
+  it('names no kind of colour the manifest has no scope for', () => {
+    // The kinds a theme already colours need nothing from us. The two the
+    // protocol has no word for - a line number and a graphics glyph - would
+    // otherwise show as uncoloured runs nobody could explain, so the manifest
+    // must carry a scope for every kind the server actually serves.
     const styled = new Set(
       Object.keys(manifest.contributes.semanticTokenScopes[0].scopes),
     );
@@ -111,20 +128,53 @@ describe('the bundled server', () => {
       'variable',
       'macro',
     ]);
-    for (const type of provider.legend.tokenTypes) {
+    const served = capabilities.semanticTokensProvider.legend.tokenTypes;
+    for (const type of served) {
       assert.ok(
         standard.has(type) || styled.has(type),
         `the server serves "${type}" and the manifest gives it no scope`,
       );
     }
+    // And the reverse: a scope for a kind no longer served is dead weight that
+    // would quietly stop matching anything.
+    for (const type of styled) {
+      assert.ok(
+        served.includes(type),
+        `the manifest scopes "${type}" and the server serves no such kind`,
+      );
+    }
+  });
+
+  it('colours a listing by the machine it declares', async () => {
+    const answer = await client.request('textDocument/semanticTokens/full', {
+      textDocument: { uri: DECLARED_URI },
+    });
+    const types = capabilities.semanticTokensProvider.legend.tokenTypes;
+    // The packed encoding, read back as the kinds it names.
+    const kinds = [];
+    for (let i = 0; i < answer.data.length; i += 5) {
+      kinds.push(types[answer.data[i + 3]]);
+    }
+    assert.ok(kinds.includes('keyword'), 'no keyword coloured');
+    assert.ok(
+      kinds.includes('label'),
+      'no line number coloured - a listing is all line numbers',
+    );
+    assert.equal(kinds[0], 'macro', 'the #MACHINE line is not a directive');
+  });
+
+  it('colours nothing in a listing it cannot bind to a machine', async () => {
+    const answer = await client.request('textDocument/semanticTokens/full', {
+      textDocument: { uri: UNDECLARED_URI },
+    });
+    assert.deepEqual(answer.data, [], 'coloured a listing with no machine');
   });
 
   it('reports a problem in a listing that declares its machine', async () => {
-    client.open('file:///declared.bas', DECLARED);
     const published = await client.waitFor(
       'textDocument/publishDiagnostics',
       (params) =>
-        params.uri === 'file:///declared.bas' && params.diagnostics.length > 0,
+        params.uri === DECLARED_URI && params.diagnostics.length > 0,
     );
     assert.match(published.diagnostics[0].message, /string/i);
     assert.equal(published.diagnostics[0].range.start.line, 1);
@@ -132,19 +182,17 @@ describe('the bundled server', () => {
 
   it('explains a keyword where it is written', async () => {
     const hover = await client.request('textDocument/hover', {
-      textDocument: { uri: 'file:///declared.bas' },
+      textDocument: { uri: DECLARED_URI },
       position: { line: 2, character: 4 },
     });
     assert.match(hover.contents.value, /GOTO/);
   });
 
   it('says which setting to reach for when no machine can be told', async () => {
-    client.open('file:///undeclared.bas', UNDECLARED);
     const published = await client.waitFor(
       'textDocument/publishDiagnostics',
       (params) =>
-        params.uri === 'file:///undeclared.bas' &&
-        params.diagnostics.length > 0,
+        params.uri === UNDECLARED_URI && params.diagnostics.length > 0,
     );
     // The message names the setting this extension contributes. If the two ever
     // part company the user is told to set something that does not exist.
