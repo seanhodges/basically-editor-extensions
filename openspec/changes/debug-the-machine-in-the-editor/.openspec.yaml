@@ -1,0 +1,6 @@
+schema: spec-driven
+created: 2026-09-10
+goal: "Wear VS Code's own debug UI over the toolchain's debugger: breakpoints in
+  the gutter, F5 to start, the stopped line highlighted, the program's variables
+  while stopped, step and continue - all of it the server's answers, none of it
+  a second debugger."

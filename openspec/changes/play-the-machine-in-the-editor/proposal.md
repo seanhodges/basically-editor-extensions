@@ -38,14 +38,13 @@ it had one.
 - No existing behaviour changes and nothing is removed. A user who never runs
   the new command sees the client they have today. **Not breaking.**
 
-**This change depends on the `basically` repository.** The server must offer two
-things it does not offer today: its operations conversation over standard
-streams, so the client can hold a machine of its own rather than reaching
-through the command line's shared one; and a way to play a held machine, giving
-back an address a web view can be pointed at. Those are the `machine-play` and
-`headless-cli` capabilities of the toolchain, proposed there as
-`play-a-machine-from-another-app`. Nothing here can be implemented before that
-ships, and nothing here asks the server for anything beyond it.
+**This change rests on two things the server offers.** Its operations
+conversation over standard streams, so the client can hold a machine of its own
+rather than reaching through the command line's shared one; and a way to play a
+held machine, giving back an address a web view can be pointed at. Those are the
+`machine-play` and `headless-cli` capabilities of the toolchain, and both are
+served by `@ba.sical.ly/cli` from 0.1.5 — the version the pin moves to. Nothing
+here asks the server for anything beyond them.
 
 ## Non-goals
 
@@ -109,9 +108,9 @@ it is a thing the panel says, not a change to how a machine is chosen.
   server copy inside it stays exactly what it is today, limits included.
 - **The tests** gain the harder half of this change. The check that matters here
   drives a real conversation with the server the extension would really start;
-  a client that can hold a machine needs the same treatment, and it needs to run
-  against a toolchain checkout, because the server offering any of this will not
-  be published when the work starts.
+  a client that can hold a machine needs the same treatment, and it cannot be
+  written against the pinned server, which serves none of this — the pin moves
+  first, or the run says nothing.
 - **The pinned version** moves once, in the one place it is named.
 - **The READMEs** gain the command, and must say — in the client's own words —
   what the address behind the panel admits, because it admits acting on a
