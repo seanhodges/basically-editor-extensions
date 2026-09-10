@@ -52,6 +52,7 @@ clients/
   notepadpp/               # Integration notes (PythonScript / LSP plugin / C++ DLL)
 scripts/
   fetch-server.mjs         # puts the pinned server inside clients/vscode
+openspec/                  # what each client guarantees, and changes in flight
 package.json               # npm workspaces root
 ```
 
@@ -157,6 +158,18 @@ toolchain or set `g:basically_cmd` first.
 
 No build yet. See [`clients/notepadpp/README.md`](clients/notepadpp/README.md)
 for the three candidate integration routes and the recommended starting point.
+
+## Spec-driven changes
+
+Features and behaviour changes go through
+[OpenSpec](https://github.com/Fission-AI/OpenSpec). What each client guarantees
+lives as a baseline capability spec in `openspec/specs/`, and in-flight work in
+`openspec/changes/`; `npx openspec list --specs` and `npx openspec validate
+--specs` are the CLI you need. Specs say **what a client guarantees** — that it
+starts the right server, with a runtime that can run it, having told it which
+machine the listing is for. The language help itself is the server's, and
+belongs to the [`basically`](https://github.com/seanhodges/basically)
+repository's specs, not to these.
 
 ## Telling it which machine
 

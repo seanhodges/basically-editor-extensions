@@ -13,7 +13,7 @@
  *   most of half a gigabyte. The language server boots no machine and reaches
  *   none of it, so `npm pack` and unpack is the whole install; `npm install`
  *   would put ~500MB into a ~4MB extension.
- * - **The version is pinned in one place** — `basically.serverVersion` in
+ * - **The version is pinned in one place** — `basically.server.version` in
  *   `clients/vscode/package.json` — so what CI packages and what a developer
  *   runs are the same server.
  *

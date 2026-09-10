@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": ["Bash(openspec:*)", "Bash(npx openspec:*)"]
+  },
+  "env": {
+    "OPENSPEC_TELEMETRY": "0"
+  }
+}
