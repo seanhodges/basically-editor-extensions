@@ -1,0 +1,96 @@
+schema: spec-driven
+
+# Shown to the AI when creating change artifacts (proposals, designs, specs,
+# tasks). Keep it to the load-bearing conventions; the full map lives in
+# CLAUDE.md and the READMEs.
+context: |
+  basically-editor-extensions holds the editor clients for the Basically
+  language server: a VS Code extension, a Vim/Neovim plugin, and integration
+  notes for Notepad++. The clients live in clients/<editor>/.
+
+  The server is NOT built here. It is `basically lsp --stdio`, an operation of
+  the Basically toolchain published to npm as @ba.sical.ly/cli, and it lives in
+  the `basically` repository. Every client does the same two things: start that
+  command, and speak LSP over its stdio. Diagnostics, completion, hover,
+  jump-to-definition, the outline, a variable's uses and colour are all the
+  server's - a spec here describes what a *client* guarantees, never what the
+  language help itself is. A change that needs the server to answer something
+  new is a change in the `basically` repository, and must say so.
+
+  Stack: TypeScript (strict) for the VS Code client, Vimscript with embedded
+  Lua for the Vim one, plain ESM Node for the build scripts. npm workspaces
+  over clients/*, of which only clients/vscode is an npm package.
+  License: GPL-3.0-or-later, matching the toolchain.
+
+  Hard conventions:
+  - The pinned server version is named in exactly ONE place,
+    basically.server.version in clients/vscode/package.json. The build, the
+    tests and the release all read it from there.
+  - clients/*/server/ is git-ignored and never committed. It is filled at build
+    time by scripts/fetch-server.mjs, which npm-packs the pinned version and
+    unpacks the package's own files only - never its dependency tree, which
+    exists for running machines and comes to most of half a gigabyte.
+  - A client never refuses to start over a version number. Where no new-enough
+    Node is available it serves with the best there is and says so, because
+    refusing would leave the user with a working editor and no language help.
+  - Every semantic token type the server advertises must have a scope in the
+    VS Code manifest, or those runs are silently uncoloured.
+  - A setting named in a server diagnostic must be one a client actually
+    contributes, or the user is told to set something that does not exist.
+  - The packaged .vsix carries a GPL program and must ship its LICENSE beside
+    it. A package that unpacked without dist/cli.mjs or without LICENSE fails
+    the build rather than reaching a user.
+  - There is no Prettier and no ESLint. `npm run lint` is `tsc --noEmit`.
+    Match the surrounding style: 2-space, single quotes, trailing commas.
+
+  Quality gates for every change, in this order - the tests import the
+  COMPILED out/server.js and read server/package.json, so building and
+  fetching come first:
+  npm run lint && npm run build && npm run server && npm test
+  Add `npm run package` when the manifest, .vscodeignore, or anything about
+  what ships changes. Fetching the server needs npm registry access; where it
+  is unavailable, say so rather than reporting a green run.
+
+  npm test is the check that matters here. It drives a real Content-Length
+  framed LSP conversation with the server the extension would really start,
+  and it is what catches a client and a server that have parted company.
+  BASICALLY_SERVER_PATH=/path/to/basically/scripts/basically npm test runs the
+  same conversation against a toolchain checkout, which is how a server that is
+  not published yet gets checked against this client.
+
+rules:
+  proposal:
+    - Include a "Non-goals" section.
+    - Name the affected capability spec(s) under openspec/specs/, or set
+      skip_specs to true in the change's .openspec.yaml and say why no
+      behaviour changes (pure refactor, tooling, docs).
+    - Say which client(s) are affected, and whether the Notepad++ notes need
+      to follow.
+  design:
+    - State whether the server contract changes. Where it does, name the
+      matching change needed in the `basically` repository - a client cannot
+      grow a capability the server does not serve.
+    - Reference the READMEs and CLAUDE.md instead of restating them.
+  specs:
+    - Requirements state WHAT a client guarantees, behaviourally - no file
+      paths, settings-file syntax or implementation detail (that belongs in
+      design.md).
+    - Describe the language help as the server's, not the client's. A client
+      guarantees that it starts the right server, with a runtime that can run
+      it, having told it which machine the listing is for.
+    - Scenarios MUST use exactly four hashes (#### Scenario:). Three fails
+      silently and the requirement is read as having none.
+    - Write spec deltas only for behaviour changes; refactors get none.
+  tasks:
+    - The final task group must run the quality gates in order -
+      npm run lint && npm run build && npm run server && npm test, plus
+      npm run package where what ships changes. A gate task may only be
+      checked off when it passes; a failing run leaves it unchecked with a
+      note on what failed.
+    - Work touching server resolution, the runtime choice, the manifest's
+      settings or its token scopes must extend
+      clients/vscode/test/handshake.test.mjs - that suite is the only place a
+      client and a server are checked against each other.
+    - The Vim client has no automated coverage. Work touching it must name the
+      manual check that was run, e.g.
+      vim -u NONE -c 'set rtp+=clients/vim' -c 'runtime plugin/basically.vim'.
