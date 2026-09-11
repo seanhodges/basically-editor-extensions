@@ -5,7 +5,7 @@
  *
  * Everything the user sees comes from the server: problems, completion, hover,
  * jump-to-definition, the outline, a variable's uses, and colour. This file
- * starts it, keeps `basically.machine` flowing to it, and offers the two
+ * starts it, keeps `basically.machine` flowing to it, and offers the three
  * commands the protocol has no place for.
  */
 import { execFile } from 'node:child_process';
@@ -20,7 +20,8 @@ import {
   type ServerOptions,
 } from 'vscode-languageclient/node';
 
-import { argsFor, launchFor, locateServer, type ServerLaunch } from './server';
+import { closeMachinePanel, MachinePanel } from './machinePanel';
+import { argsFor, envFor, launchFor, locateServer, type ServerLaunch } from './server';
 
 const LANGUAGE_ID = 'basically';
 const CONFIG_SECTION = 'basically';
@@ -30,6 +31,14 @@ const CLIENT_NAME = 'Basically';
 const run = promisify(execFile);
 
 let client: LanguageClient | undefined;
+/**
+ * One channel for both conversations.
+ *
+ * The language client would make its own; given this one, the notes about which
+ * server and which runtime were chosen land in the same place whether they were
+ * written while serving the language or while starting a machine.
+ */
+let channel: vscode.OutputChannel | undefined;
 
 /** Where the server is and what will run it, from the settings as they stand. */
 function currentLaunch(context: vscode.ExtensionContext): ServerLaunch {
@@ -50,11 +59,7 @@ function executableFor(launch: ServerLaunch): Executable {
     command: launch.command,
     args: argsFor(launch, 'lsp', '--stdio'),
     transport: TransportKind.stdio,
-    options: launch.runAsNode
-      ? // The editor's own executable is Electron, which runs as Node only when
-        // told to. Without this it would open a second window rather than serve.
-        { env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' } }
-      : undefined,
+    options: { env: envFor(launch) },
   };
 }
 
@@ -74,6 +79,7 @@ async function startClient(
     // a different machine would not reach it until the next restart. The server
     // asks for `basically.machine` itself once it knows something moved.
     synchronize: { configurationSection: CONFIG_SECTION },
+    outputChannel: channel,
     // For a client that cannot be asked for its configuration. VS Code can, so
     // this only settles the first moments before the first pull.
     initializationOptions: {
@@ -108,9 +114,7 @@ async function machinesFrom(launch: ServerLaunch): Promise<
     launch.command,
     argsFor(launch, 'machines', '--json'),
     {
-      env: launch.runAsNode
-        ? { ...process.env, ELECTRON_RUN_AS_NODE: '1' }
-        : process.env,
+      env: envFor(launch),
       maxBuffer: 4 * 1024 * 1024,
     },
   );
@@ -163,12 +167,38 @@ function describe(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+/**
+ * Run the listing being edited, and play its machine in the panel.
+ *
+ * Restarting the language server does not go through here and does not disturb
+ * a machine: the panel holds its own conversation with the toolchain.
+ */
+async function runListing(context: vscode.ExtensionContext): Promise<void> {
+  const editor = vscode.window.activeTextEditor;
+  if (!editor || editor.document.languageId !== LANGUAGE_ID) {
+    void vscode.window.showInformationMessage(
+      'Open the listing you want to run, then run this command again.',
+    );
+    return;
+  }
+  const panel = MachinePanel.show(outputChannel());
+  await panel.play(editor.document, context.extensionPath);
+}
+
+function outputChannel(): vscode.OutputChannel {
+  return (channel ??= vscode.window.createOutputChannel(CLIENT_NAME));
+}
+
 export async function activate(
   context: vscode.ExtensionContext,
 ): Promise<void> {
   context.subscriptions.push(
+    outputChannel(),
     vscode.commands.registerCommand('basically.selectMachine', () =>
       selectMachine(context),
+    ),
+    vscode.commands.registerCommand('basically.runListing', () =>
+      runListing(context),
     ),
     vscode.commands.registerCommand('basically.restartServer', async () => {
       await client?.stop();
@@ -194,6 +224,7 @@ async function activateClient(context: vscode.ExtensionContext): Promise<void> {
 }
 
 export async function deactivate(): Promise<void> {
+  closeMachinePanel();
   await client?.stop();
   client = undefined;
 }

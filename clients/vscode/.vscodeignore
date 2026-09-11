@@ -23,6 +23,9 @@ node_modules/**
 **/.DS_Store
 **/*.log
 
-# The language server ships inside the VSIX, its own LICENSE and README beside
-# it: the VSIX carries a GPL-3.0-or-later program and must say so.
+# The toolchain ships inside the VSIX, its own LICENSE and README beside it:
+# the VSIX carries a GPL-3.0-or-later program and must say so. The emulator it
+# resolves before running any machine travels with it, under its own licence,
+# and is re-included explicitly because `node_modules/**` above would drop it.
 !server/**
+!server/node_modules/**

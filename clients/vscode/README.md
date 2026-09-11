@@ -18,8 +18,43 @@ each listing is written for.
   a keyword on one machine and an ordinary variable on another is coloured as
   whichever it is here.
 
-Nothing needs installing: the language server ships inside this extension. It
-runs no emulator and needs no ROM.
+Nothing needs installing: the toolchain ships inside this extension, with the
+emulator it runs machines on.
+
+## Running a listing
+
+**Basically: Run this listing and play its machine** runs what you're editing —
+unsaved changes and all — and opens a panel showing the machine it's written
+for. You can type at it: answer a program's question, drive a game, or work at
+the machine's own `READY` prompt. It's the machine your problems are reported
+against, settled the same way.
+
+The panel is this window's, and the machine in it is this editor's own. It isn't
+the machine your terminal is holding, neither disturbs the other, and closing the
+panel lets the machine go. Running a second listing plays it in the same panel.
+
+The panel is a page served at an address on your own computer, and **whoever
+holds that address can type at the machine, not merely watch it** — it's a way
+of acting on the machine, so treat it as a secret.
+
+A few key chords never reach the machine: VS Code claims them first, wherever the
+focus is. Which ones depends on your keybindings — anything you've bound at the
+workbench level, and the editor's own defaults, are taken before the panel sees
+them. Rebind what you need for a particular game under **Preferences: Open
+Keyboard Shortcuts**.
+
+### ROMs
+
+Most machines need their original firmware, which isn't part of the toolchain,
+isn't shipped with this extension, and carries its own terms. The first time you
+run a machine that needs an image you'll be asked before anything is downloaded,
+and told where the terms are set out. Agreeing once covers later machines and
+later runs. Declining changes nothing — you'll be asked again next time you run
+one.
+
+Some machines need nothing: their emulator carries its own images, and they run
+on a bare install. The extension asks the server which are which rather than
+keeping a list, so the answer is always the one that copy can actually honour.
 
 ## Which machine?
 
@@ -43,6 +78,11 @@ takes the first of these that answers:
 | `basically.server.nodePath` | The Node.js that runs the bundled server                           |
 | `basically.trace.server`    | Log the conversation with the server to the _Basically_ output channel |
 
+Running a listing uses the same three chains as serving the language: which
+machine it's for, which server to start, and which Node runs it. Pointing
+`basically.server.path` at a toolchain you installed yourself is also the remedy
+where the bundled copy can't run something.
+
 ## More
 
 The toolchain behind this extension also builds, runs and checks BASIC programs
@@ -54,4 +94,6 @@ outside the browser — see
 
 GPL-3.0-or-later. This extension bundles
 [`@ba.sical.ly/cli`](https://www.npmjs.com/package/@ba.sical.ly/cli), also
-GPL-3.0-or-later, with its own licence text in `server/LICENSE`.
+GPL-3.0-or-later, with its own licence text in `server/LICENSE`, and
+[`jsbeeb`](https://github.com/mattgodbolt/jsbeeb) — the emulator the toolchain
+runs machines on — under its own licence beside it.

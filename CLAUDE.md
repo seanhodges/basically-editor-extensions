@@ -102,6 +102,10 @@ vim -u NONE -c 'set rtp+=clients/vim' -c 'runtime plugin/basically.vim' file.bas
 | -------------------------------------- | --------------------------------------------------------------------------------- |
 | `clients/vscode/src/extension.ts`       | Activation, the two commands, and the `LanguageClient` wiring                     |
 | `clients/vscode/src/server.ts`          | Where the server is and what runs it — kept free of `vscode` so a plain Node test can drive it |
+| `clients/vscode/src/framing.ts`         | `Content-Length`-framed JSON, driven by both the extension and the tests         |
+| `clients/vscode/src/operations.ts`      | The toolchain's operations conversation, and which machine a listing runs on — also free of `vscode` |
+| `clients/vscode/src/machinePanel.ts`    | The panel, and the frame pointed at the address the toolchain gives back        |
+| `clients/vscode/src/roms.ts`            | Asking the toolchain what images are held, and recording the user's agreement   |
 | `clients/vscode/package.json`           | The extension manifest, and the **one place** the server version is pinned        |
 | `clients/vscode/test/handshake.test.mjs`| The client-against-server check, over a hand-rolled LSP client in `lspClient.mjs` |
 | `clients/vim/plugin/basically.vim`      | Registration with whichever LSP host is present                                   |
@@ -119,6 +123,10 @@ vim -u NONE -c 'set rtp+=clients/vim' -c 'runtime plugin/basically.vim' file.bas
 - **Which runtime** runs it: what the user configured, `node` on `PATH`, then
   the editor's own. First new enough wins.
 
+Serving the language and running a machine ask different things of a server, and
+the second is the narrower: **whether a machine can be run is always asked of
+the server that was found**, never decided from anything a client holds.
+
 ## Conventions
 
 - **The server is pinned in one place** — `basically.server.version` in
@@ -127,7 +135,12 @@ vim -u NONE -c 'set rtp+=clients/vim' -c 'runtime plugin/basically.vim' file.bas
 - **`clients/*/server/` is git-ignored and never committed.** It is filled by
   `scripts/fetch-server.mjs`, which `npm pack`s the pinned version and unpacks
   the package's own files only — never its dependency tree, which exists for
-  running machines and comes to most of half a gigabyte.
+  building and presenting and comes to most of half a gigabyte. The emulator the
+  toolchain reaches for is unpacked the same way beside it, at the version the
+  toolchain's own manifest asks for: the toolchain resolves it before it runs
+  anything, so a copy without it runs no machine at all. **No ROM image is ever
+  fetched, committed or published by the build** — a machine needing one is run
+  only after the user has agreed, through the toolchain's own `roms accept`.
 - **Never refuse to start over a version number.** Where no new-enough Node is
   available, serve with the best there is and say so in the output channel.
   Refusing leaves the user with a working editor and no language help at all.
