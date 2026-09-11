@@ -30,7 +30,7 @@
   "basically": {
     "server": {
       "package": "@ba.sical.ly/cli",
-      "version": "0.1.2"
+      "version": "0.1.6"
     }
   },
   "activationEvents": [
@@ -77,8 +77,21 @@
         "command": "basically.restartServer",
         "title": "Restart the language server",
         "category": "Basically"
+      },
+      {
+        "command": "basically.runListing",
+        "title": "Run this listing and play its machine",
+        "category": "Basically"
       }
     ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "basically.runListing",
+          "when": "editorLangId == basically"
+        }
+      ]
+    },
     "configuration": {
       "title": "Basically",
       "properties": {

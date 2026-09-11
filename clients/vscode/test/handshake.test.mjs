@@ -10,12 +10,17 @@
  * nothing. Every assertion here is about the server as packaged.
  */
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { execFile } from 'node:child_process';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { after, before, describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 
 import { LspClient } from './lspClient.mjs';
+
+const execFileAsync = promisify(execFile);
 
 const clientDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -27,8 +32,13 @@ const manifest = JSON.parse(
 
 // The compiled resolution, so the test starts the server the way the extension
 // does rather than the way this file imagines it would.
-const { argsFor, launchFor, locateServer } = await import(
+const { argsFor, envFor, launchFor, locateServer } = await import(
   path.join(clientDir, 'out', 'server.js')
+);
+// And the compiled conversation and the compiled decision, for the same reason:
+// what is driven here is what ships.
+const { Operations, planRun } = await import(
+  path.join(clientDir, 'out', 'operations.js')
 );
 
 // Normally the bundled copy. `BASICALLY_SERVER_PATH` points the same
@@ -202,5 +212,167 @@ describe('the bundled server', () => {
         manifest.contributes.configuration.properties,
       'the extension does not contribute the setting the server names',
     );
+  });
+});
+
+/**
+ * The other half of what the extension asks of the toolchain: a machine of its
+ * own, run and played without leaving the editor.
+ *
+ * Held against the server the extension would really start, for the same reason
+ * the language half is: a client and a server that have parted company here
+ * install perfectly and then show the user an empty panel.
+ */
+describe('a machine of the editor’s own', () => {
+  let operations;
+  let machines;
+
+  before(async () => {
+    operations = Operations.start(launch);
+    machines = await operations.machines();
+  });
+
+  after(async () => {
+    await operations?.dispose();
+  });
+
+  it('serves the operations conversation', () => {
+    assert.ok(machines.length > 0, 'the server reports no machines at all');
+    for (const machine of machines) {
+      assert.equal(
+        typeof machine.canRun,
+        'boolean',
+        `${machine.id} does not say whether it can be run`,
+      );
+    }
+  });
+
+  it('says which machines it cannot run, before anything is attempted', () => {
+    // Two answers, both of which the client acts on before it runs anything:
+    // the machines this copy can run, and the ones whose ROM images it does not
+    // hold. A copy that claimed all of one or all of the other would leave the
+    // client either refusing everything or failing after the fact.
+    const runnable = machines.filter((machine) => machine.canRun);
+    const needingRoms = machines.filter((machine) => !machine.canRun);
+    assert.ok(
+      runnable.length > 0,
+      'this copy of the toolchain can run no machine at all; the panel would never show one',
+    );
+    assert.ok(
+      needingRoms.length > 0,
+      'every machine is said to be runnable, so the ROM agreement would never be asked for',
+    );
+    assert.deepEqual(planRun(machines, runnable[0].id, ''), {
+      kind: 'run',
+      machine: runnable[0],
+    });
+    assert.deepEqual(planRun(machines, needingRoms[0].id, ''), {
+      kind: 'needs-roms',
+      machine: needingRoms[0],
+    });
+  });
+
+  it('tells a listing with no machine what to set, rather than guessing', async () => {
+    assert.equal(await operations.declaredMachine(DECLARED), 'zx81');
+    assert.equal(await operations.declaredMachine(UNDECLARED), null);
+    assert.deepEqual(planRun(machines, null, ''), { kind: 'no-machine' });
+    // What the panel then tells the user to set. If the two ever part company
+    // the user is told to set something that does not exist.
+    assert.ok(
+      'basically.machine' in manifest.contributes.configuration.properties,
+      'the extension does not contribute the setting the panel names',
+    );
+  });
+
+  it('brings a machine up and gives back an address to play it at', async () => {
+    const machine = machines.find((candidate) => candidate.canRun);
+    const report = await operations.run(
+      machine.id,
+      '10 PRINT "PLAYED IN THE EDITOR"\n20 END\n',
+    );
+    assert.equal(report.machine.id, machine.id);
+    assert.deepEqual(
+      report.errors.filter((problem) => problem.fatal !== false),
+      [],
+      'the listing the test runs is not one this machine accepts',
+    );
+
+    const played = await operations.play();
+    assert.equal(played.problem, null);
+    // An address is only worth having if something is behind it: the panel puts
+    // exactly this into a frame and adds nothing of its own.
+    const answered = await fetch(played.address);
+    assert.equal(answered.status, 200, 'nothing answers at the played address');
+  });
+
+  it('lets the machine go when the conversation ends', async () => {
+    const machine = machines.find((candidate) => candidate.canRun);
+    const held = Operations.start(launch);
+    await held.run(machine.id, '10 PRINT "HELD"\n20 END\n');
+    const { address } = await held.play();
+    assert.equal((await fetch(address)).status, 200);
+
+    await held.dispose();
+
+    // The machine goes with the connection, so nothing is left running behind a
+    // panel the user closed. Nothing in the client had to arrange this.
+    await assert.rejects(
+      fetch(address),
+      'the machine was still being served after its conversation ended',
+    );
+  });
+
+  it('holds a machine of its own, not the one the command line holds', async (t) => {
+    const cli = (...operation) =>
+      execFileAsync(launch.command, argsFor(launch, ...operation), {
+        env: envFor(launch),
+        maxBuffer: 4 * 1024 * 1024,
+      });
+    const machine = machines.find((candidate) => candidate.canRun);
+
+    // The command line keeps its machine in a host shared across its commands.
+    // Started here rather than by the first command that wants it, so that
+    // command does not have to wait on a host being brought up; and stopped
+    // afterwards only if this test is what started it.
+    const before = JSON.parse((await cli('server', 'status', '--json')).stdout);
+    if (!before.running) await cli('server', 'start');
+    try {
+      await operations.run(machine.id, '10 PRINT "THEEDITORS"\n20 END\n');
+      // A file rather than standard input, which the command line would also
+      // take but which nothing here is holding open to write to.
+      const listing = path.join(mkdtempSync(path.join(tmpdir(), 'basically-test-')), 'theirs.bas');
+      writeFileSync(listing, '10 PRINT "THECOMMANDLINES"\n20 END\n');
+      try {
+        await cli('run', '-m', machine.id, '--hold', '--screen-text', listing);
+      } catch (error) {
+        if (before.running) {
+          // A host was already up, and it is not this copy of the toolchain -
+          // which is the very separation being checked, so it is reported
+          // rather than failed. Stop it and run the suite again to check it.
+          t.skip(`a host that is not this toolchain is already running: ${error.message}`);
+          return;
+        }
+        throw error;
+      }
+
+      const ours = await operations.call('look', {});
+      const theirs = JSON.parse((await cli('look', '--json')).stdout);
+      assert.match(ours.screen.lines.join('\n'), /THEEDITORS/);
+      assert.match(theirs.screen.lines.join('\n'), /THECOMMANDLINES/);
+      assert.doesNotMatch(
+        theirs.screen.lines.join('\n'),
+        /THEEDITORS/,
+        'the command line was given the editor’s machine',
+      );
+      // And neither was disturbed by the other: the editor's machine still
+      // shows what the editor ran after the command line ran something else.
+      assert.match(
+        (await operations.call('look', {})).screen.lines.join('\n'),
+        /THEEDITORS/,
+        'the command line disturbed the editor’s machine',
+      );
+    } finally {
+      if (!before.running) await cli('server', 'stop').catch(() => {});
+    }
   });
 });

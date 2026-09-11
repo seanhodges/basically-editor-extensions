@@ -14,8 +14,13 @@ npm install -g @ba.sical.ly/cli
 basically lsp --stdio
 ```
 
-It is a Node program (22 or newer), not an executable to bundle, and it needs no
-ROM. On Windows that installs `basically.cmd` alongside `basically`; a plugin
+It is a Node program (22 or newer), not an executable to bundle. Serving the
+language needs no ROM: `basically lsp --stdio` boots no machine, so nothing here
+has to obtain one. Running a machine is a different operation of the same
+toolchain and does need them — that is what the VS Code client's panel asks the
+user about — but a plugin that only speaks LSP never reaches it.
+
+On Windows the install puts `basically.cmd` alongside `basically`; a plugin
 spawning it directly should invoke `node` with
 `%APPDATA%\npm\node_modules\@ba.sical.ly\cli\dist\cli.mjs`, because `.cmd`
 launchers and pipes get along badly.

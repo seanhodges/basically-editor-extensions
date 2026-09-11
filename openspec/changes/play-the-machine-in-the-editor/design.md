@@ -141,6 +141,29 @@ toolchain expects to be asked: everything about the caller's files is settled by
 the caller, and a host never resolves a location relative to wherever it happens
 to be running.
 
+### The emulator travels with the server
+
+**Decision.** The build carries the emulator the toolchain reaches for beside
+the toolchain itself — that package's own files, never its tree, at the version
+the toolchain's own manifest asks for. No ROM image is fetched or held by the
+build; the images that travel are the ones inside that emulator's own package,
+which are the ones the toolchain already reports as needing no agreement.
+
+**Why.** The toolchain asks Node where the emulator is before it runs anything
+at all, so a copy without it runs no machine whatsoever — not even the machines
+whose emulation is in the toolchain's own files. Carrying it is what makes the
+panel work on a bare install, and its own files come to a fraction of the tree
+the packaging rule exists to keep out.
+
+**Alternatives considered.** *Carry the toolchain alone and report the failure* —
+honest, but leaves the whole of this change dead for anyone who has not
+installed the toolchain themselves, which is most users of a released client.
+*Carry the emulator but strip the images inside it* — measured, and rejected:
+the toolchain goes on reporting those machines as runnable and then fails on a
+missing file, so the client could no longer tell a user in advance what it
+could run. The agreement the images need is asked for where one is actually
+needed, which is every other machine.
+
 ### One machine per panel, released when the panel closes
 
 **Decision.** A panel holds one machine for as long as it is open. Closing it
@@ -166,7 +189,12 @@ a guarantee it already has.
   editor's external-URI mapping is designed for this, but it is the one
   assumption in this design that would invalidate the whole panel if it did not
   hold. Verify it against a remote workspace before the panel is built out, not
-  after.
+  after. **Still to be verified by hand.** The panel is written to the documented
+  contract — the address goes through `vscode.env.asExternalUri`, and the
+  webview's content rules name the origin that comes back rather than the one
+  that went in, so a mapped address is the one allowed in the frame — but
+  nothing here has been run inside an editor, remote or local, and the three
+  checks that would settle it are unticked in `tasks.md` for that reason.
 - **The editor may swallow the machine's keys, or the machine the editor's** →
   A frame taking raw keystrokes sits inside an application with its own
   keybindings. Some chords will not reach the machine. Mitigated by saying which,
@@ -185,12 +213,28 @@ a guarantee it already has.
   client that does not carry half a gigabyte, and the remedy — pointing at a
   toolchain install of one's own — is one the client already supports.
 
+### One panel to a window, and the command explains itself
+
+**Decision.** A window has one panel. Running a second listing plays it on that
+panel, letting the machine the previous run left go first. The command is
+offered wherever a listing is being edited, and where a listing cannot be run
+the panel says why rather than the command being absent.
+
+**Why.** A panel is a machine, and a machine is a connection: one panel per
+listing would be one toolchain process per listing, so a user who ran three
+would be holding three machines without having asked to. Showing the command and
+letting it explain itself is what the client already does everywhere else it
+cannot do something — it says what is wrong and names the remedy — and a command
+that quietly disappears leaves a user with nothing to read.
+
 ## Open Questions
 
-- Whether one panel per listing or one panel per window is the better default
-  when a user runs a second listing while a panel is open. Replacing what is in
-  the panel is simpler and matches the toolchain holding one machine per caller;
-  a second panel is what a user with two listings may expect.
-- Whether the command should be offered where a listing cannot be run at all —
-  hidden, or shown and explaining itself when used. Showing it is usually kinder,
-  but a command that is always visible and usually refuses is its own complaint.
+- Which machine a listing is for cannot be *inferred* over the operations
+  conversation. The toolchain settles a machine there from the listing's own
+  declaration or from one passed in, and refuses where neither answers; the
+  inference the language server does is not reachable from any request the
+  client can make. So the panel settles a machine by the first two of the three
+  chains and says what to set where neither answers — which is what the spec
+  requires of the un-settleable case, but reaches it for some listings the
+  editor can nonetheless colour. Closing this needs the `basically` repository
+  to offer the inference to a caller.

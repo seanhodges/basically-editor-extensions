@@ -4,12 +4,27 @@
  * A minimal language-server client: enough of the protocol to hold a real
  * conversation with the server the extension will start, with no editor
  * involved.
+ *
+ * The framing is the extension's own compiled framing, not a second copy of it:
+ * a test-only implementation would go on passing while the shipped one was
+ * broken, which is the failure this whole suite exists to catch.
  */
 import { spawn } from 'node:child_process';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const { encodeFrame, FrameReader } = await import(
+  path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '..',
+    'out',
+    'framing.js',
+  )
+);
 
 export class LspClient {
   #child;
-  #buffer = Buffer.alloc(0);
+  #reader = new FrameReader();
   #nextId = 1;
   #pending = new Map();
   #notifications = [];
@@ -29,23 +44,7 @@ export class LspClient {
   }
 
   #receive(chunk) {
-    this.#buffer = Buffer.concat([this.#buffer, chunk]);
-    for (;;) {
-      const headerEnd = this.#buffer.indexOf('\r\n\r\n');
-      if (headerEnd === -1) return;
-      const header = this.#buffer.subarray(0, headerEnd).toString('ascii');
-      const length = Number(/content-length: *(\d+)/i.exec(header)?.[1]);
-      if (!Number.isFinite(length)) {
-        throw new Error(`no Content-Length in header: ${JSON.stringify(header)}`);
-      }
-      const bodyStart = headerEnd + 4;
-      if (this.#buffer.length < bodyStart + length) return;
-      const message = JSON.parse(
-        this.#buffer.subarray(bodyStart, bodyStart + length).toString('utf8'),
-      );
-      this.#buffer = this.#buffer.subarray(bodyStart + length);
-      this.#dispatch(message);
-    }
+    for (const message of this.#reader.push(chunk)) this.#dispatch(message);
   }
 
   #dispatch(message) {
@@ -68,10 +67,7 @@ export class LspClient {
   }
 
   #send(message) {
-    const body = JSON.stringify(message);
-    this.#child.stdin.write(
-      `Content-Length: ${Buffer.byteLength(body)}\r\n\r\n${body}`,
-    );
+    this.#child.stdin.write(encodeFrame(message));
   }
 
   request(method, params) {
