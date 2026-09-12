@@ -5,9 +5,10 @@
  *
  * Everything the user sees comes from the server: problems, completion, hover,
  * jump-to-definition, the outline, a variable's uses, and colour. This file
- * starts it, keeps `basically.machine` flowing to it, offers the three commands
- * the protocol has no place for, and says which machine the listing being
- * edited is checked against.
+ * starts it on the first listing opened, keeps `basically.machine` flowing to
+ * it, offers the three commands the protocol has no place for, says which
+ * machine the listing being edited is checked against, and tells the editor
+ * where the toolchain its own agent can use is.
  */
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -27,6 +28,7 @@ import {
 } from './machineDebugAdapter';
 import { closeMachinePanel, MachinePanel } from './machinePanel';
 import { MachineStatusItem } from './machineStatusItem';
+import { registerMcpServer } from './mcpServer';
 import { VariableWatchView } from './variableWatchView';
 import { argsFor, envFor, launchFor, locateServer, type ServerLaunch } from './server';
 
@@ -38,6 +40,8 @@ const CLIENT_NAME = 'Basically';
 const run = promisify(execFile);
 
 let client: LanguageClient | undefined;
+/** A start already under way, so that opening several listings starts one server. */
+let starting: Promise<void> | undefined;
 /**
  * One channel for both conversations.
  *
@@ -227,6 +231,8 @@ export async function activate(
     vscode.commands.registerCommand('basically.restartServer', async () => {
       await client?.stop();
       client = undefined;
+      // Asked for outright, so it starts whether or not a listing is open: the
+      // user correcting a setting wants to know at once whether it took.
       await activateClient(context);
     }),
   );
@@ -237,20 +243,51 @@ export async function activate(
   // Also independent of it: a debug session and the language server are two
   // conversations, and restarting one leaves the other alone.
   registerMachineDebug(context, outputChannel(), variables);
-  await activateClient(context);
+  // And independent again, because the editor may load this extension for the
+  // agent alone, in a window holding no listing at all.
+  registerMcpServer(context, outputChannel());
+  context.subscriptions.push(serveWhenAListingIsOpen(context));
+}
+
+/**
+ * Serve the language from the first listing onward, and not before.
+ *
+ * Offering the toolchain to the agent means the editor activates this extension
+ * in windows that hold no BASIC, and a language server started for a user who
+ * has opened none is a process they did not ask for.
+ */
+function serveWhenAListingIsOpen(
+  context: vscode.ExtensionContext,
+): vscode.Disposable {
+  const listing = (document: vscode.TextDocument): boolean =>
+    document.languageId === LANGUAGE_ID;
+  if (vscode.workspace.textDocuments.some(listing)) void activateClient(context);
+  return vscode.workspace.onDidOpenTextDocument((document) => {
+    if (listing(document)) void activateClient(context);
+  });
 }
 
 async function activateClient(context: vscode.ExtensionContext): Promise<void> {
+  // Several listings can be opened at once, and each would otherwise start a
+  // server of its own before the first had finished starting.
+  if (client || starting) return starting;
+  starting = (async () => {
+    try {
+      client = await startClient(context);
+      context.subscriptions.push(client);
+    } catch (error) {
+      const launch = currentLaunch(context);
+      void vscode.window.showErrorMessage(
+        `Could not start the Basically language server (${launch.command}): ${describe(error)}. ` +
+          'Install the toolchain with "npm install -g @ba.sical.ly/cli" and set basically.server.path, ' +
+          'or set basically.server.nodePath to a Node.js 22 or newer.',
+      );
+    }
+  })();
   try {
-    client = await startClient(context);
-    context.subscriptions.push(client);
-  } catch (error) {
-    const launch = currentLaunch(context);
-    void vscode.window.showErrorMessage(
-      `Could not start the Basically language server (${launch.command}): ${describe(error)}. ` +
-        'Install the toolchain with "npm install -g @ba.sical.ly/cli" and set basically.server.path, ' +
-        'or set basically.server.nodePath to a Node.js 22 or newer.',
-    );
+    await starting;
+  } finally {
+    starting = undefined;
   }
 }
 

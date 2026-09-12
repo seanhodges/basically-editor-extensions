@@ -26,7 +26,8 @@ import {
   type Machine,
   type RunPlan,
 } from './operations';
-import { acceptRoms, romStatus, ROM_TERMS_URL } from './roms';
+import { agreeToRoms } from './romConsent';
+import { ROM_TERMS_URL } from './roms';
 import { launchFor, locateServer, type ServerLaunch } from './server';
 
 const CONFIG_SECTION = 'basically';
@@ -301,43 +302,19 @@ export class MachinePanel {
     }
   }
 
-  /**
-   * Ask before anything is obtained, and record the answer through the
-   * toolchain's own agree-in-advance path. Declining is not a failed run.
-   */
+  /** Declining is not a failed run, so the panel says what it left the user with. */
   async #obtainRoms(launch: ServerLaunch, machine: Machine): Promise<boolean> {
-    const status = await romStatus(launch);
-    if (!status.agreed) {
-      const download = 'Download the images';
-      const terms = 'Read the terms';
-      for (;;) {
-        const answer = await vscode.window.showInformationMessage(
-          `Running the ${machine.name} needs its original ROM images, which are not part of ` +
-            'the toolchain. They would be downloaded from ' +
-            `${status.publishedAt} into ${status.home}, and they carry their own terms.`,
-          { modal: true },
-          download,
-          terms,
-        );
-        if (answer === terms) {
-          await vscode.env.openExternal(vscode.Uri.parse(ROM_TERMS_URL));
-          continue;
-        }
-        if (answer !== download) {
-          this.#say(
-            `Nothing was downloaded, so the ${machine.name} cannot be run here.`,
-            'You declined the ROM images the machine needs. Nothing has changed.',
-            `Their terms are at ${ROM_TERMS_URL}. Run this listing again to be asked once more, ` +
-              'or point basically.server.path at a toolchain holding images of your own.',
-          );
-          return false;
-        }
-        break;
-      }
+    if (await agreeToRoms(launch, `Running the ${machine.name}`)) {
+      this.#say(`The images the ${machine.name} needs are in place.`);
+      return true;
     }
-    this.#say(`Obtaining the images the ${machine.name} needs…`);
-    await acceptRoms(launch);
-    return true;
+    this.#say(
+      `Nothing was downloaded, so the ${machine.name} cannot be run here.`,
+      'You declined the ROM images the machine needs. Nothing has changed.',
+      `Their terms are at ${ROM_TERMS_URL}. Run this listing again to be asked once more, ` +
+        'or point basically.server.path at a toolchain holding images of your own.',
+    );
+    return false;
   }
 
   /**

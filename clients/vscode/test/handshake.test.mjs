@@ -19,6 +19,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 
 import { LspClient } from './lspClient.mjs';
+import { McpClient } from './mcpClient.mjs';
 
 const execFileAsync = promisify(execFile);
 
@@ -32,7 +33,7 @@ const manifest = JSON.parse(
 
 // The compiled resolution, so the test starts the server the way the extension
 // does rather than the way this file imagines it would.
-const { argsFor, envFor, launchFor, locateServer } = await import(
+const { argsFor, envFor, envOverlayFor, launchFor, locateServer } = await import(
   pathToFileURL(path.join(clientDir, 'out', 'server.js')).href
 );
 // And the compiled conversation and the compiled decision, for the same reason:
@@ -705,5 +706,116 @@ describe('a program the editor can stop on a line', () => {
     } finally {
       if (!before.running) await cli('server', 'stop').catch(() => {});
     }
+  });
+});
+
+describe('the toolchain served to an agent', () => {
+  let agent;
+  let tools;
+
+  before(async () => {
+    agent = new McpClient(
+      launch.command,
+      argsFor(launch, 'mcp', '--stdio'),
+      launch.runAsNode
+        ? { env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' } }
+        : {},
+    );
+    await agent.initialize();
+    tools = (await agent.tools()).tools;
+  });
+
+  after(async () => {
+    await agent?.stop();
+  });
+
+  // The extension names this operation to the editor and never speaks it
+  // itself, so nothing else in this repository would notice a server that had
+  // stopped answering it.
+  it('answers the agent protocol over the server the client will name', () => {
+    assert.ok(
+      Array.isArray(tools) && tools.length > 0,
+      'the server offered an agent no tools at all',
+    );
+    for (const tool of tools) {
+      assert.ok(tool.name, 'a tool arrived without a name');
+      assert.ok(
+        tool.inputSchema,
+        `the ${tool.name} tool arrived without a schema to call it by`,
+      );
+    }
+  });
+
+  // Deliberately not an assertion about *which* tools there are: what the
+  // toolchain offers an agent is the toolchain's to change, and the editor is
+  // the one that reads the list.
+  it('carries out a request needing no machine and no images', async () => {
+    const answer = await agent.call('machines');
+    assert.ok(
+      !answer.isError,
+      `the server refused a request needing nothing: ${JSON.stringify(answer.content)}`,
+    );
+    const text = answer.content.map((part) => part.text ?? '').join('');
+    assert.match(text, /zx81/i, 'the machines it reported named no machine');
+  });
+});
+
+describe('what the client owes itself about the agent', () => {
+  it('adds to the environment only what the launch needs', () => {
+    assert.deepEqual(
+      envOverlayFor({ command: 'node', prefixArgs: [], runAsNode: false, notes: [] }),
+      {},
+      'a launch that needs nothing added still added something',
+    );
+    assert.deepEqual(
+      envOverlayFor({ command: 'code', prefixArgs: [], runAsNode: true, notes: [] }),
+      { ELECTRON_RUN_AS_NODE: '1' },
+      "the editor's own executable was not told to serve",
+    );
+    // The whole environment is still what a spawn of our own is given; the
+    // overlay is for the editor, which supplies its own.
+    const whole = envFor({
+      command: 'code',
+      prefixArgs: [],
+      runAsNode: true,
+      notes: [],
+    });
+    assert.equal(whole.ELECTRON_RUN_AS_NODE, '1');
+    assert.equal(whole.PATH, process.env.PATH);
+  });
+
+  // The client registers under the name and label it reads from here, so a
+  // contribution that went missing or arrived without a label is an extension
+  // that offers the agent nothing and says nothing about why.
+  it('contributes the provider it registers under', () => {
+    const contributed = manifest.contributes.mcpServerDefinitionProviders;
+    assert.ok(
+      Array.isArray(contributed) && contributed.length === 1,
+      'the manifest contributes no agent-server provider',
+    );
+    assert.ok(contributed[0].id, 'the provider is contributed without an id');
+    assert.ok(
+      contributed[0].label,
+      'the provider is contributed without a label, so the editor lists it unnamed',
+    );
+  });
+
+  // The editor holds this extension to the version it asks for, and the API the
+  // provider is registered through does not exist in an older one.
+  it('asks for an editor new enough to be told about a server', () => {
+    const asked = Number(/\d+\.(\d+)\./.exec(manifest.engines.vscode)?.[1]);
+    assert.ok(
+      asked >= 101,
+      `the manifest asks for ${manifest.engines.vscode}, which cannot register a provider`,
+    );
+  });
+
+  it('offers a setting for everything it tells the user to set', () => {
+    const properties = manifest.contributes.configuration.properties;
+    assert.ok(
+      'basically.mcp.enabled' in properties,
+      'the toolchain can be offered to an agent with no way to decline it',
+    );
+    assert.equal(properties['basically.mcp.enabled'].default, true);
   });
 });

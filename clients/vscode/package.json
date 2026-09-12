@@ -13,7 +13,7 @@
   },
   "homepage": "https://ba.sical.ly/docs/guide/language-server",
   "engines": {
-    "vscode": "^1.85.0",
+    "vscode": "^1.101.0",
     "node": ">=20"
   },
   "categories": [
@@ -147,6 +147,12 @@
         "category": "Basically"
       }
     ],
+    "mcpServerDefinitionProviders": [
+      {
+        "id": "basically.toolchain",
+        "label": "Basically"
+      }
+    ],
     "menus": {
       "commandPalette": [
         {
@@ -175,6 +181,12 @@
           "default": "",
           "markdownDescription": "Path to the Node.js used to run the bundled server. Left empty, `node` from your PATH is used where it is new enough, and the editor's own Node otherwise.",
           "scope": "machine-overridable"
+        },
+        "basically.mcp.enabled": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Offer the Basically toolchain to this editor's chat agent, so it can lint, build and run BASIC programs and read the screens they draw. Turned off, the toolchain is no longer offered and your listings go on being served as before. The agent is given the same server that serves the language, so `basically.server.path` points both at once.",
+          "scope": "window"
         },
         "basically.trace.server": {
           "type": "string",
@@ -205,7 +217,7 @@
   },
   "devDependencies": {
     "@types/node": "^20.14.0",
-    "@types/vscode": "^1.85.0",
+    "@types/vscode": "^1.101.0",
     "@vscode/vsce": "^2.26.1",
     "rimraf": "^5.0.7",
     "typescript": "^5.4.5"
