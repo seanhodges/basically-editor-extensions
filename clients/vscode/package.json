@@ -35,7 +35,8 @@
   },
   "activationEvents": [
     "onLanguage:basically",
-    "onDebugResolve:basically"
+    "onDebugResolve:basically",
+    "onView:basically.variables"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -111,6 +112,22 @@
             }
           }
         ]
+      }
+    ],
+    "views": {
+      "panel": [
+        {
+          "id": "basically.variables",
+          "name": "Basically variables",
+          "icon": "$(symbol-variable)",
+          "contextualTitle": "Basically variables"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "basically.variables",
+        "contents": "Run a listing to play its machine and watch what its variables hold, or debug one to see them each time it stops.\n[Run this listing](command:basically.runListing)"
       }
     ],
     "commands": [

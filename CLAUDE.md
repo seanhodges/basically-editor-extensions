@@ -114,11 +114,14 @@ vim -u NONE -c 'set rtp+=clients/vim' -c 'runtime plugin/basically.vim' file.bas
 | `clients/vscode/src/debugLines.ts`      | Which BASIC line a row carries, and which row a line is on — also free of `vscode` |
 | `clients/vscode/src/machineDebug.ts`    | The debug conversation: the controls offered, and what a stopped program answers — also free of `vscode` |
 | `clients/vscode/src/machineDebugAdapter.ts` | The debug type, the configuration filled in for a user who wrote none, and the adapter handed over inline |
+| `clients/vscode/src/variableWatch.ts`   | What the user is told the machine holds, and when it is worth reading again — also free of `vscode` |
+| `clients/vscode/src/variableWatchView.ts` | The view that shows it, and the two things that make it read          |
 | `clients/vscode/package.json`           | The extension manifest, and the **one place** the server version is pinned        |
 | `clients/vscode/test/handshake.test.mjs`| The client-against-server check, over a hand-rolled LSP client in `lspClient.mjs` |
 | `clients/vscode/test/package.test.mjs`  | The package-against-itself check: every module the entry point loads, resolved from inside the package |
 | `clients/vscode/test/machineStatus.test.mjs` | The client-against-itself check: what the user is shown for each answer, over no server at all |
 | `clients/vscode/test/machineDebug.test.mjs` | The other client-against-itself check: which controls a session offers, and what a row means to a machine |
+| `clients/vscode/test/variableWatch.test.mjs` | The third: what the user is shown of what the machine holds, over no server at all |
 | `clients/vim/plugin/basically.vim`      | Registration with whichever LSP host is present                                   |
 | `scripts/fetch-server.mjs`              | Puts the pinned server inside the VS Code client at build time                    |
 | `scripts/vendor-modules.mjs`            | Puts the modules the compiled client loads beside it, at the versions the lockfile resolved |

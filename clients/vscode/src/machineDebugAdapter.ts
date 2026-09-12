@@ -23,6 +23,7 @@ import {
   type DebugProtocolMessage,
 } from './machineDebug';
 import { launchForDocument, MachinePanel } from './machinePanel';
+import type { ProgramWatcher } from './variableWatchView';
 import { OperationFailed, planRun } from './operations';
 
 const LANGUAGE_ID = 'basically';
@@ -230,10 +231,16 @@ class InlineMachineDebugAdapter implements vscode.DebugAdapter {
 class MachineDebugAdapters implements vscode.DebugAdapterDescriptorFactory {
   #extensionPath: string;
   #channel: vscode.OutputChannel;
+  #watcher: ProgramWatcher;
 
-  constructor(extensionPath: string, channel: vscode.OutputChannel) {
+  constructor(
+    extensionPath: string,
+    channel: vscode.OutputChannel,
+    watcher: ProgramWatcher,
+  ) {
     this.#extensionPath = extensionPath;
     this.#channel = channel;
+    this.#watcher = watcher;
   }
 
   async createDebugAdapterDescriptor(
@@ -255,7 +262,11 @@ class MachineDebugAdapters implements vscode.DebugAdapterDescriptorFactory {
       source: document.getText(),
       path: document.uri.fsPath,
       mirror: (address) => panel.mirror(address, machineName),
-      released: async () => panel.sessionEnded(machineName),
+      moved: () => this.#watcher.moved(),
+      released: async () => {
+        panel.sessionEnded(machineName);
+        this.#watcher.released();
+      },
     };
     return new vscode.DebugAdapterInlineImplementation(
       new InlineMachineDebugAdapter(host),
@@ -274,6 +285,7 @@ class MachineDebugAdapters implements vscode.DebugAdapterDescriptorFactory {
 export function registerMachineDebug(
   context: vscode.ExtensionContext,
   channel: vscode.OutputChannel,
+  watcher: ProgramWatcher,
 ): void {
   context.subscriptions.push(
     vscode.debug.registerDebugConfigurationProvider(
@@ -282,7 +294,7 @@ export function registerMachineDebug(
     ),
     vscode.debug.registerDebugAdapterDescriptorFactory(
       DEBUG_TYPE,
-      new MachineDebugAdapters(context.extensionPath, channel),
+      new MachineDebugAdapters(context.extensionPath, channel, watcher),
     ),
   );
 }

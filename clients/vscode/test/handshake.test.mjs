@@ -257,6 +257,16 @@ describe('the bundled server', () => {
 const printing = (word) => `10 PRINT "${word}"\n`;
 
 /**
+ * A listing that holds a variable and never stops changing it.
+ *
+ * What a played machine is read with: it has to go on running after the run
+ * that started it has returned, because a machine nobody is driving holds still
+ * and would prove nothing about reading one that does not. Counting in a loop
+ * is the smallest thing every machine's BASIC accepts that does that.
+ */
+const COUNTING = ['10 LET A=0', '20 LET A=A+1', '30 GOTO 20', ''].join('\n');
+
+/**
  * The other half of what the extension asks of the toolchain: a machine of its
  * own, run and played without leaving the editor.
  *
@@ -344,6 +354,56 @@ describe('a machine of the editor’s own', () => {
     // exactly this into a frame and adds nothing of its own.
     const answered = await fetch(played.address);
     assert.equal(answered.status, 200, 'nothing answers at the played address');
+  });
+
+  it('reads what a played machine holds, or says why it will not', async () => {
+    // The view that watches a played listing is filled from this. A played
+    // machine advances on its own clock, so this is the one read the client
+    // makes of a machine nothing has asked to move.
+    //
+    // Two answers are allowed, because the client is pinned to one server but
+    // can be pointed at any toolchain a user installs: a server that files this
+    // read with the measurements refuses it, and one that files it with the
+    // screen reads answers it. What is checked is that it is one of those two
+    // and not a third thing - a client meeting anything else would show the
+    // user a fault it has no sentence for. Tighten this to the answer alone
+    // once the pinned version is one that gives it.
+    const machine = machines.find((candidate) => candidate.canRun);
+    await operations.run(machine.id, COUNTING);
+    const played = await operations.play();
+    assert.equal(played.problem, null);
+
+    let report;
+    try {
+      report = await operations.variables();
+    } catch (error) {
+      assert.match(
+        error.message,
+        /being played/i,
+        'a played machine refused its variables for some reason other than being played',
+      );
+      return;
+    }
+
+    assert.ok(
+      report.variables === null || Array.isArray(report.variables),
+      'a played machine answered neither variables nor that it has none to give',
+    );
+    if (report.variables === null) return;
+    assert.ok(
+      report.variables.some((variable) => variable.name === 'A'),
+      'the counting listing held no A while it was played',
+    );
+
+    // Read again: a machine being played goes on running between the two, and
+    // the second read is answered as readily as the first. Two readings
+    // differing is the program running rather than a fault, so what is checked
+    // is that both are answered, not that they agree.
+    const again = await operations.variables();
+    assert.ok(
+      again.variables.some((variable) => variable.name === 'A'),
+      'the counter went away while the machine was being played',
+    );
   });
 
   it('lets the machine go when the conversation ends', async () => {

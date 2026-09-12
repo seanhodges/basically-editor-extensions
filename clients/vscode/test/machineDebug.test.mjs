@@ -114,6 +114,10 @@ function session(source = LISTING, answers = {}) {
   const sent = [];
   const operations = recordingOperations(answers);
   const mirrored = [];
+  // Counted rather than ignored: what shows the machine's variables reads them
+  // again on each of these, so a session that stopped somewhere without saying
+  // so would leave the user looking at the values of a line already left.
+  const moves = { count: 0 };
   const debugged = new MachineDebugSession(
     {
       operations,
@@ -122,6 +126,9 @@ function session(source = LISTING, answers = {}) {
       path: '/listings/game.bas',
       mirror: async (address) => {
         mirrored.push(address);
+      },
+      moved: () => {
+        moves.count++;
       },
       released: async () => {
         mirrored.push('released');
@@ -143,7 +150,7 @@ function session(source = LISTING, answers = {}) {
   };
   const events = (name) =>
     sent.filter((message) => message.type === 'event' && message.event === name);
-  return { debugged, operations, ask, sent, events, mirrored };
+  return { debugged, operations, ask, sent, events, mirrored, moves };
 }
 
 describe('the controls a debug session offers', () => {
@@ -323,6 +330,39 @@ describe('what a session shows and says', () => {
         source: { name: 'game.bas', path: '/listings/game.bas' },
       },
     ]);
+  });
+
+  it('says the program moved at every stop, so its variables are read again', async () => {
+    // What a session shows of the machine is only as current as the last time
+    // something said to look: a debugged machine advances when asked and at no
+    // other time, so nothing but this says there is anything new to see.
+    const { ask, moves } = session();
+    await ask('launch');
+    const afterLaunch = moves.count;
+    assert.ok(afterLaunch > 0, 'the stop a run arrived at was not reported');
+    await ask('next', { threadId: 1 });
+    assert.equal(moves.count, afterLaunch + 1, 'a step was not reported');
+    await ask('continue', { threadId: 1 });
+    assert.equal(moves.count, afterLaunch + 2, 'a continue was not reported');
+  });
+
+  it('says the program moved when it ends, not only when it stops', async () => {
+    // A program that ended left the machine holding whatever it finished with,
+    // which is the last thing the user wants to look at rather than nothing.
+    const { ask, moves } = session(LISTING, {
+      continue: {
+        canStep: true,
+        ending: 'ended',
+        line: null,
+        frames: 1,
+        seconds: 0,
+        running: false,
+      },
+    });
+    await ask('launch');
+    const afterLaunch = moves.count;
+    await ask('continue', { threadId: 1 });
+    assert.equal(moves.count, afterLaunch + 1);
   });
 
   it('says a machine cannot report its variables rather than showing none', async () => {
