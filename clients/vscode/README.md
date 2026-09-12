@@ -94,9 +94,10 @@ than appearing to hold none, and nothing here sets a variable or watches an
 expression: the toolchain reports what a program holds and offers no way to
 evaluate or assign anything.
 
-Reading a machine that's being played needs a toolchain that answers it. Point
-`basically.server.path` at an older copy and the view says so, and the values
-are still there each time a debugged program stops.
+Reading a machine that's being played needs a toolchain that answers it, and the
+copy that ships does. Point `basically.server.path` at one older than that and
+the view says so, and the values are still there each time a debugged program
+stops.
 
 **Running and debugging are the two ways to start a listing, and they're
 different.** Running gives you a machine on its own clock that you type at;

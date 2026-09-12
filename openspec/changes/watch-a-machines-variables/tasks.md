@@ -49,11 +49,9 @@
 - [x] 5.2 Add a `viewsWelcome` entry for a window holding no machine, saying what
       to do rather than showing an empty table.
 - [x] 5.3 Add the view's activation event.
-- [ ] 5.4 Move `basically.server.version` to the release carrying the server
-      change. NOT DONE: no release carries it yet — it is on a branch in the
-      `basically` repository. The pin stays at 0.1.16, which refuses a read of a
-      played machine, and the view says so. This is the last thing to do before
-      this change ships.
+- [x] 5.4 Move `basically.server.version` to the release carrying the server
+      change. Pinned to 0.1.17, the first release that answers a read of a played
+      machine rather than refusing it.
 
 ## 6. Tests
 
@@ -62,11 +60,9 @@
       `test/machineStatus.test.mjs`: every state, the single-flight rule, and the
       refusal being recognised as its own state rather than a failure.
 - [x] 6.2 Extend `clients/vscode/test/handshake.test.mjs` so what a real server
-      answers for a played machine is checked against the client. It allows
-      either of the two answers a server may give — answered, or refused for the
-      machine being played — because the client is pinned to one server and can
-      be pointed at any toolchain a user installs. Tighten it to the answer alone
-      when 5.4 is done.
+      answers for a played machine is checked against the client. Now the pin is
+      a release that answers, it requires the answer: a server that refuses the
+      read fails the suite rather than being tolerated.
 - [x] 6.3 Confirm `clients/vscode/test/machineDebug.test.mjs` still passes: a new
       `DebugHost` member changes neither the declared capabilities nor the
       answered requests, so its two-way check should be untouched.

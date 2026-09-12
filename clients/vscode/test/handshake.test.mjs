@@ -357,35 +357,18 @@ describe('a machine of the editor’s own', () => {
     assert.equal(answered.status, 200, 'nothing answers at the played address');
   });
 
-  it('reads what a played machine holds, or says why it will not', async () => {
+  it('reads what a played machine holds, of a machine that is moving', async () => {
     // The view that watches a played listing is filled from this. A played
     // machine advances on its own clock, so this is the one read the client
-    // makes of a machine nothing has asked to move.
-    //
-    // Two answers are allowed, because the client is pinned to one server but
-    // can be pointed at any toolchain a user installs: a server that files this
-    // read with the measurements refuses it, and one that files it with the
-    // screen reads answers it. What is checked is that it is one of those two
-    // and not a third thing - a client meeting anything else would show the
-    // user a fault it has no sentence for. Tighten this to the answer alone
-    // once the pinned version is one that gives it.
+    // makes of a machine nothing has asked to move - and a server that files
+    // that read with the measurements refuses it instead, which is exactly the
+    // parting of company this suite exists to catch.
     const machine = machines.find((candidate) => candidate.canRun);
     await operations.run(machine.id, COUNTING);
     const played = await operations.play();
     assert.equal(played.problem, null);
 
-    let report;
-    try {
-      report = await operations.variables();
-    } catch (error) {
-      assert.match(
-        error.message,
-        /being played/i,
-        'a played machine refused its variables for some reason other than being played',
-      );
-      return;
-    }
-
+    const report = await operations.variables();
     assert.ok(
       report.variables === null || Array.isArray(report.variables),
       'a played machine answered neither variables nor that it has none to give',
