@@ -40,17 +40,25 @@ export function argsFor(
 }
 
 /**
- * The environment to start the server in.
+ * What a launch adds to an environment, and nothing else.
  *
  * The editor's own executable is Electron, which runs as Node only when told
- * to. Without this it would open a second window rather than serve. Every
- * conversation with the toolchain goes through here, so the language server and
- * the operations conversation are started on the same terms.
+ * to. Without this it would open a second window rather than serve. Kept apart
+ * from the whole environment below because a caller that hands the launch to the
+ * editor rather than spawning it itself is asked for the addition alone.
+ */
+export function envOverlayFor(launch: ServerLaunch): Record<string, string> {
+  return launch.runAsNode ? { ELECTRON_RUN_AS_NODE: '1' } : {};
+}
+
+/**
+ * The environment to start the server in.
+ *
+ * Every conversation the client spawns for itself goes through here, so the
+ * language server and the operations conversation are started on the same terms.
  */
 export function envFor(launch: ServerLaunch): NodeJS.ProcessEnv {
-  return launch.runAsNode
-    ? { ...process.env, ELECTRON_RUN_AS_NODE: '1' }
-    : { ...process.env };
+  return { ...process.env, ...envOverlayFor(launch) };
 }
 
 /** The bundled server, as `scripts/fetch-server.mjs` lays it out. */

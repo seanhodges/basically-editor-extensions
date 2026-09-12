@@ -103,6 +103,28 @@ Some machines need nothing: their emulator carries its own images, and they run
 on a bare install. The extension asks the server which are which rather than
 keeping a list, so the answer is always the one that copy can actually honour.
 
+## Letting your agent use the toolchain
+
+The toolchain behind this extension can work for the chat agent built into your
+editor, and the extension tells the editor where it is — so there is nothing to
+install and nothing to configure. Ask your agent to write a BASIC program and it
+can check it for problems, build it, run it on the real machine, read the screen
+that machine drew, press keys at it and read it again, measure where the time
+went, and stop the program on a line to see what its variables hold.
+
+The agent gets the same server that serves your listings, run by the same
+Node.js, so `basically.server.path` points both at once. Which tools it has is
+the toolchain's to say, not this extension's — your editor lists them, under
+**Basically**, wherever it shows you the servers it has been given.
+
+The machine the agent works on follows the same order as everywhere else: what
+the program itself declares wins, and `basically.machine` is what it falls back
+on. The agent's machine is its own — it is not the one the panel is playing, and
+neither shows the other.
+
+Set `basically.mcp.enabled` to `false` if you would rather your agent were not
+offered the toolchain. Your listings go on being served exactly as before.
+
 ## Which machine?
 
 Every listing is for one machine, and the extension needs to know which. It
@@ -129,6 +151,7 @@ status bar's, so you can hide it there like anything else.
 | `basically.machine`         | The machine listings default to, by id or full name                |
 | `basically.server.path`     | Serve from a `basically` command or checkout instead of the bundled copy |
 | `basically.server.nodePath` | The Node.js that runs the bundled server                           |
+| `basically.mcp.enabled`     | Offer the toolchain to this editor's chat agent (on by default)    |
 | `basically.trace.server`    | Log the conversation with the server to the _Basically_ output channel |
 
 Running a listing uses the same three chains as serving the language: which
