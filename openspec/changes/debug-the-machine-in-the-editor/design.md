@@ -205,8 +205,10 @@ line 100.
 - **Remote development** → Inherited from the panel change and unchanged: the
   mirrored screen is an address on the machine the server runs on, and the
   editor's external-URI mapping is what carries it. It remains the one assumption
-  that would invalidate showing a screen at all, and it is confirmed there before
-  it is relied on here.
+  that would invalidate showing a screen at all, and it is confirmed in
+  `play-the-machine-from-a-remote-workspace` rather than here or in the panel
+  change, which guarantees a panel for one computer. Nothing here waits on it: a
+  debugger that shows a screen where the panel shows one is right either way.
 - **A third long-lived process is not added, but a second is now busier** → The
   held machine serves the panel and the session. A debug session that stops
   asking is a machine sitting still, which costs nothing; a continue that runs
