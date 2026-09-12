@@ -25,7 +25,10 @@ emulator and reads no ROM, so it works the same on a machine with no ROMs at
 all.
 
 Every client here does the same two things: start that command, and speak LSP
-over its stdio.
+over its stdio. The VS Code client holds two further conversations with the same
+toolchain — the operations one it runs and debugs a machine over, and the one it
+hands to the editor for the editor's own agent — but the language is always
+this.
 
 ```
    ┌──────────────┐   ┌──────────────┐   ┌──────────────┐
@@ -62,6 +65,38 @@ run the machine, and narrower again than serving the language.
 
 Every answer is the server's. The client starts nothing, decides nothing about a
 machine, and holds no knowledge of which machines can be stepped.
+
+## Serving the editor's own agent
+
+The VS Code client also tells the editor where the toolchain is, so the editor's
+chat agent can be given it: `basically mcp --stdio`, a third operation of the
+same toolchain, offering an agent the toolchain's own operations — lint, build,
+run, look at the screen, press keys, profile, step.
+
+The editor starts, restarts and stops that server itself. The client only
+describes it — the command, its arguments, what the launch adds to the
+environment, and a version that changes when what would actually run changes.
+So nothing here speaks that protocol, nothing frames a message, and no account
+is kept of what the toolchain offers an agent: the editor asks the server, as it
+asks every other server it is given.
+
+It is the same server, found in the same order and run by the same runtime, as
+serves the language. An agent answering from a different toolchain than the one
+serving the listing would report problems the editor does not show.
+
+```
+   ┌──────────────┐        ┌──────────────┐
+   │  VS Code     │        │  the editor's│
+   │  extension   │        │  chat agent  │
+   └──────┬───────┘        └──────┬───────┘
+          │ here is where         │ what have you got?
+          │ the toolchain is      │
+          └────────► editor ◄─────┘
+                       │ starts it
+          ┌────────────▼───────────────┐
+          │ basically mcp --stdio      │
+          └────────────────────────────┘
+```
 
 ## Layout
 

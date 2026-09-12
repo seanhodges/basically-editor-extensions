@@ -16,6 +16,11 @@ client here does the same two things: start that command, and speak LSP over its
 stdio. The language features are all the server's — a change that needs the
 server to answer something new is a change in `basically`, not here.
 
+The VS Code client holds two further conversations with the same toolchain: the
+**operations** one it runs and debugs a machine over, and the **agent** one —
+`basically mcp --stdio` — which it does not hold at all but hands to the editor,
+so the editor's own chat agent can be given the toolchain.
+
 **Clients:** `clients/vscode/` (TypeScript, `vscode-languageclient`),
 `clients/vim/` (Vimscript shim with embedded Lua, for Neovim's built-in LSP or
 Vim + `vim-lsp`), `clients/notepadpp/` (integration notes only — no build yet).
@@ -103,7 +108,7 @@ vim -u NONE -c 'set rtp+=clients/vim' -c 'runtime plugin/basically.vim' file.bas
 
 | Path                                   | Role                                                                              |
 | -------------------------------------- | --------------------------------------------------------------------------------- |
-| `clients/vscode/src/extension.ts`       | Activation, the two commands, and the `LanguageClient` wiring                     |
+| `clients/vscode/src/extension.ts`       | Activation, the three commands, and the `LanguageClient` wiring — started on the first listing opened, not on activation |
 | `clients/vscode/src/server.ts`          | Where the server is and what runs it — kept free of `vscode` so a plain Node test can drive it |
 | `clients/vscode/src/framing.ts`         | `Content-Length`-framed JSON, driven by both the extension and the tests         |
 | `clients/vscode/src/operations.ts`      | The toolchain's operations conversation, and which machine a listing runs on — also free of `vscode` |
@@ -111,11 +116,14 @@ vim -u NONE -c 'set rtp+=clients/vim' -c 'runtime plugin/basically.vim' file.bas
 | `clients/vscode/src/machineStatusItem.ts` | The status bar item that says it, and the conversation it asks through          |
 | `clients/vscode/src/machinePanel.ts`    | The panel, and the frame pointed at the address the toolchain gives back        |
 | `clients/vscode/src/roms.ts`            | Asking the toolchain what images are held, and recording the user's agreement   |
+| `clients/vscode/src/romConsent.ts`      | The question the user is actually asked about those images, for whichever caller needs it |
+| `clients/vscode/src/mcpServer.ts`       | Where the toolchain is, told to the editor so its own agent can be given it     |
 | `clients/vscode/src/debugLines.ts`      | Which BASIC line a row carries, and which row a line is on — also free of `vscode` |
 | `clients/vscode/src/machineDebug.ts`    | The debug conversation: the controls offered, and what a stopped program answers — also free of `vscode` |
 | `clients/vscode/src/machineDebugAdapter.ts` | The debug type, the configuration filled in for a user who wrote none, and the adapter handed over inline |
 | `clients/vscode/package.json`           | The extension manifest, and the **one place** the server version is pinned        |
-| `clients/vscode/test/handshake.test.mjs`| The client-against-server check, over a hand-rolled LSP client in `lspClient.mjs` |
+| `clients/vscode/test/handshake.test.mjs`| The client-against-server check, over hand-rolled clients in `lspClient.mjs` and `mcpClient.mjs` |
+| `clients/vscode/test/mcpClient.mjs`     | The agent's protocol, framed by line rather than by length — deliberately no code shared with the LSP one |
 | `clients/vscode/test/package.test.mjs`  | The package-against-itself check: every module the entry point loads, resolved from inside the package |
 | `clients/vscode/test/machineStatus.test.mjs` | The client-against-itself check: what the user is shown for each answer, over no server at all |
 | `clients/vscode/test/machineDebug.test.mjs` | The other client-against-itself check: which controls a session offers, and what a row means to a machine |
@@ -140,6 +148,12 @@ a server, and each is narrower than the last: **whether a machine can be run, an
 whether it can be stepped, are always asked of the server that was found**, never
 decided from anything a client holds. A machine that can be run cannot thereby be
 stepped — not every machine can say which BASIC line it is executing.
+
+**The agent is served from the same server as the language**, found the same way
+and run by the same runtime: an agent answering from a different toolchain than
+the one serving the listing would report problems the editor does not show. And
+what that server offers an agent is the editor's to ask it — the client names
+the command and keeps no account of the tools.
 
 ## Conventions
 
