@@ -19,7 +19,8 @@ each listing is written for.
   whichever it is here.
 
 Nothing needs installing: the toolchain ships inside this extension, with the
-emulator it runs machines on.
+emulator it runs machines on, and the extension carries the modules it loads
+itself.
 
 ## Running a listing
 

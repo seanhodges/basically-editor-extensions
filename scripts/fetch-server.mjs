@@ -78,11 +78,40 @@ if (
   process.exit(0);
 }
 
+/**
+ * Run npm, and give back what it wrote to stdout.
+ *
+ * npm is started as its own JavaScript under this very Node rather than by
+ * name. The name on `PATH` is a shim, and on Windows a `.cmd` one, which Node
+ * will not spawn directly; handing the spawn to a shell instead would leave
+ * the arguments unescaped, and one of them is a temporary directory whose name
+ * the machine chooses. npm sets `npm_execpath` for every script it runs, so a
+ * build started the documented way already says where npm is; a run started by
+ * hand falls back to the copy beside this Node, and then to the bare name,
+ * which resolves everywhere but Windows.
+ */
+function npm(args, options) {
+  const cli = process.env.npm_execpath ?? npmBesideNode();
+  return cli
+    ? execFileSync(process.execPath, [cli, ...args], options)
+    : execFileSync('npm', args, options);
+}
+
+/** npm as it is laid out beside the running Node, or null where it is not. */
+function npmBesideNode() {
+  const dir = path.dirname(process.execPath);
+  return (
+    [
+      path.join(dir, 'node_modules', 'npm', 'bin', 'npm-cli.js'),
+      path.join(dir, '..', 'lib', 'node_modules', 'npm', 'bin', 'npm-cli.js'),
+    ].find((cli) => existsSync(cli)) ?? null
+  );
+}
+
 /** `npm pack` one package and unpack its own files into `into`. */
 function unpack(what, into, staging) {
   console.log(`fetching ${what}`);
-  const tarball = execFileSync(
-    'npm',
+  const tarball = npm(
     ['pack', what, '--pack-destination', staging, '--silent'],
     { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] },
   )
@@ -92,11 +121,21 @@ function unpack(what, into, staging) {
 
   rmSync(into, { recursive: true, force: true });
   mkdirSync(into, { recursive: true });
-  // The tarball's single `package/` directory becomes `into`.
+  // The tarball's single `package/` directory becomes `into`. tar is run in
+  // the staging directory, and told where to unpack in forward slashes: the
+  // tar that comes with Git for Windows reads a `C:\…` after `-f` as a host
+  // to connect to, and mangles the backslashes of a path after `-C`. Windows'
+  // own tar takes either form, so what is given is the form both understand.
   execFileSync(
     'tar',
-    ['-xzf', path.join(staging, tarball), '-C', into, '--strip-components=1'],
-    { stdio: 'inherit' },
+    [
+      '-xzf',
+      tarball,
+      '-C',
+      into.split(path.sep).join('/'),
+      '--strip-components=1',
+    ],
+    { cwd: staging, stdio: 'inherit' },
   );
 }
 

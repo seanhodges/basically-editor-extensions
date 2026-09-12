@@ -56,7 +56,8 @@ baseline once shipped.
 ```bash
 npm install          # installs the vscode workspace and the tooling
 npm run lint         # type-check across workspaces (tsc --noEmit)
-npm run build        # tsc across workspaces → clients/vscode/out/
+npm run build        # tsc across workspaces → clients/vscode/out/, with the
+                     # modules the client loads carried beside it
 npm run server       # fetch the pinned language server into clients/vscode/server/
 npm test             # drive a real LSP conversation with it
 npm run package      # → dist/basically-vscode.vsix
@@ -68,8 +69,10 @@ npm run --workspace basically-vscode watch   # then F5 in clients/vscode
 **Run them in that order.** The tests import the *compiled* `out/server.js` — so
 they resolve the server the way the shipped extension does, not the way the test
 imagines it would — and they read `clients/vscode/server/package.json` to check
-the pin. Building and fetching therefore come before testing, which is why CI
-runs `lint → build → server → test → package`.
+the pin. `package.test.mjs` goes further and asks the packager itself what it
+will ship, which is the compiled output and the modules carried beside it.
+Building and fetching therefore come before testing, which is why CI runs
+`lint → build → server → test → package`.
 
 **Before finishing a change**, run `npm run lint && npm run build && npm run
 server && npm test`, plus `npm run package` when the manifest, `.vscodeignore`
@@ -108,8 +111,10 @@ vim -u NONE -c 'set rtp+=clients/vim' -c 'runtime plugin/basically.vim' file.bas
 | `clients/vscode/src/roms.ts`            | Asking the toolchain what images are held, and recording the user's agreement   |
 | `clients/vscode/package.json`           | The extension manifest, and the **one place** the server version is pinned        |
 | `clients/vscode/test/handshake.test.mjs`| The client-against-server check, over a hand-rolled LSP client in `lspClient.mjs` |
+| `clients/vscode/test/package.test.mjs`  | The package-against-itself check: every module the entry point loads, resolved from inside the package |
 | `clients/vim/plugin/basically.vim`      | Registration with whichever LSP host is present                                   |
 | `scripts/fetch-server.mjs`              | Puts the pinned server inside the VS Code client at build time                    |
+| `scripts/vendor-modules.mjs`            | Puts the modules the compiled client loads beside it, at the versions the lockfile resolved |
 | `openspec/specs/`                       | What the clients guarantee, per capability                                        |
 
 **Three precedence chains are this repo's real subject**, and each is stated in
@@ -152,6 +157,18 @@ the server that was found**, never decided from anything a client holds.
 - **The packaged `.vsix` carries a GPL program and must ship its `LICENSE`.**
   A server that unpacks without `dist/cli.mjs` or without `LICENSE` fails the
   build rather than reaching a user.
+- **The extension carries the modules it loads**, in `out/node_modules/`, put
+  there by `scripts/vendor-modules.mjs` at the versions the lockfile resolved —
+  so the copy that ships is the copy that was tested, and the client under the
+  debugger loads it too. `clients/*` is a workspace glob, so what the client
+  requires is hoisted to the repository root and is no part of the package; and
+  the packager never looks inside a workspace's own top-level `node_modules`
+  either, which is why they go beside the compiled client rather than above it.
+  A package whose entry point cannot be loaded from inside it, or a carried
+  module without its licence, fails the build: **an extension whose main module
+  will not load runs no activation**, so it registers none of its commands and
+  the editor answers every one of them as not found, having offered it from the
+  manifest a moment earlier. `package.test.mjs` is what checks this.
 - **Strict TypeScript** — `noUnusedLocals`, `noUnusedParameters`,
   `noImplicitReturns` and `noFallthroughCasesInSwitch` are on.
 - **No Prettier, no ESLint.** `npm run lint` is `tsc --noEmit`. Match the

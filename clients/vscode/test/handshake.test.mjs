@@ -15,7 +15,7 @@ import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { after, before, describe, it } from 'node:test';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 
 import { LspClient } from './lspClient.mjs';
@@ -33,12 +33,12 @@ const manifest = JSON.parse(
 // The compiled resolution, so the test starts the server the way the extension
 // does rather than the way this file imagines it would.
 const { argsFor, envFor, launchFor, locateServer } = await import(
-  path.join(clientDir, 'out', 'server.js')
+  pathToFileURL(path.join(clientDir, 'out', 'server.js')).href
 );
 // And the compiled conversation and the compiled decision, for the same reason:
 // what is driven here is what ships.
 const { Operations, planRun } = await import(
-  path.join(clientDir, 'out', 'operations.js')
+  pathToFileURL(path.join(clientDir, 'out', 'operations.js')).href
 );
 
 // Normally the bundled copy. `BASICALLY_SERVER_PATH` points the same
@@ -94,7 +94,28 @@ describe('the bundled server', () => {
       readFileSync(path.join(clientDir, 'server', 'package.json'), 'utf8'),
     );
     assert.equal(packaged.name, manifest.basically.server.package);
-    assert.equal(packaged.version, manifest.basically.server.version);
+
+    // What was carried has to be what was named, or this suite has tested a
+    // server that is not the one shipping. That comparison only means anything
+    // where the name is a single version, which is the convention and is what
+    // makes a build repeatable. A range names a set, so there is nothing here
+    // to compare against: the run is against whatever the registry answered at
+    // the moment the server was fetched, and it would answer differently
+    // tomorrow. Said out loud rather than passed over quietly, because it is
+    // the one thing about this suite that is not reproducible.
+    const pinned = manifest.basically.server.version;
+    assert.match(
+      packaged.version,
+      /^\d+\.\d+\.\d+/,
+      'the carried server does not say which version it is',
+    );
+    if (!/^\d+\.\d+\.\d+/.test(pinned)) {
+      t.skip(
+        `basically.server.version is "${pinned}", which pins nothing; the carried server is ${packaged.version}`,
+      );
+      return;
+    }
+    assert.equal(packaged.version, pinned);
   });
 
   it('offers every kind of help the client relies on', () => {
@@ -216,6 +237,23 @@ describe('the bundled server', () => {
 });
 
 /**
+ * A listing that prints one word, for whichever machine these tests run on.
+ *
+ * It ends by running out rather than by saying so, and that is deliberate: a
+ * terminator would have to be the right word for that machine, and there is no
+ * word that is right for all of them. `END` is not a statement on the ZX81 or
+ * the ZX80, which stop with `STOP`; `STOP` is not one on the Apple I or the
+ * Apple II, which end with `END`. Which machine these tests use is the first
+ * the carried server says it can run, and that order is the toolchain's to
+ * change — so the listing has to be one every machine accepts, and printing and
+ * falling off the end is that listing.
+ *
+ * The word is left to the caller because two of these tests read it back off a
+ * machine's screen, where a space would be a second thing to get right.
+ */
+const printing = (word) => `10 PRINT "${word}"\n`;
+
+/**
  * The other half of what the extension asks of the toolchain: a machine of its
  * own, run and played without leaving the editor.
  *
@@ -288,7 +326,7 @@ describe('a machine of the editor’s own', () => {
     const machine = machines.find((candidate) => candidate.canRun);
     const report = await operations.run(
       machine.id,
-      '10 PRINT "PLAYED IN THE EDITOR"\n20 END\n',
+      printing('PLAYED IN THE EDITOR'),
     );
     assert.equal(report.machine.id, machine.id);
     assert.deepEqual(
@@ -308,7 +346,7 @@ describe('a machine of the editor’s own', () => {
   it('lets the machine go when the conversation ends', async () => {
     const machine = machines.find((candidate) => candidate.canRun);
     const held = Operations.start(launch);
-    await held.run(machine.id, '10 PRINT "HELD"\n20 END\n');
+    await held.run(machine.id, printing('HELD'));
     const { address } = await held.play();
     assert.equal((await fetch(address)).status, 200);
 
@@ -337,11 +375,11 @@ describe('a machine of the editor’s own', () => {
     const before = JSON.parse((await cli('server', 'status', '--json')).stdout);
     if (!before.running) await cli('server', 'start');
     try {
-      await operations.run(machine.id, '10 PRINT "THEEDITORS"\n20 END\n');
+      await operations.run(machine.id, printing('THEEDITORS'));
       // A file rather than standard input, which the command line would also
       // take but which nothing here is holding open to write to.
       const listing = path.join(mkdtempSync(path.join(tmpdir(), 'basically-test-')), 'theirs.bas');
-      writeFileSync(listing, '10 PRINT "THECOMMANDLINES"\n20 END\n');
+      writeFileSync(listing, printing('THECOMMANDLINES'));
       try {
         await cli('run', '-m', machine.id, '--hold', '--screen-text', listing);
       } catch (error) {

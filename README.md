@@ -73,6 +73,25 @@ The version is pinned in exactly one place, `basically.server.version` in
 `clients/vscode/package.json`. Bump it there and the build, the tests and the
 release all follow.
 
+### What else the extension carries
+
+The client loads one module of its own, and `clients/*` being a workspace glob
+means npm installs it at the repository root — above the client, where nothing
+in the packaged extension can reach it. So `scripts/vendor-modules.mjs` copies
+what the compiled client loads into `clients/vscode/out/node_modules/`, at the
+versions this repository's own install resolved, whenever the client is
+compiled. Beside the compiled client rather than at the top of it, because that
+is both the first place Node looks from `out/extension.js` and the one place the
+packager will collect; and copied rather than fetched, so what ships is what the
+tests ran against.
+
+`clients/vscode/test/package.test.mjs` is what holds this up. It takes the file
+list from the packager itself, stands those files up somewhere with nothing
+above them, and asks Node to resolve every module the entry point loads. An
+extension whose main module will not load runs no activation at all, registers
+none of its commands, and answers every one of them as not found — while the
+palette goes on offering them, because that much is read from the manifest.
+
 At run time the extension resolves, in order:
 
 1. **`basically.server.path`** — a `basically` command, or a checkout's
@@ -198,4 +217,5 @@ publishes to the VS Code Marketplace and Open VSX.
 
 GPL-3.0-or-later, matching the toolchain. The packaged `.vsix` contains a copy
 of `@ba.sical.ly/cli`, which is GPL-3.0-or-later, with its own `LICENSE` beside
-it.
+it. The modules the client loads travel with their own licences too — MIT and
+ISC — and the build fails rather than carrying one without its notice.

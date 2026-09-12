@@ -2,7 +2,7 @@
   "name": "basically-vscode",
   "displayName": "Basically",
   "description": "Language support for retro BASIC — problems, completion, hover, jump-to-definition, outline and colour, for the machine each listing is written for.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": "basically",
   "license": "GPL-3.0-or-later",
   "private": true,
@@ -30,7 +30,7 @@
   "basically": {
     "server": {
       "package": "@ba.sical.ly/cli",
-      "version": "0.1.6"
+      "version": "*"
     }
   },
   "activationEvents": [
@@ -129,8 +129,8 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./",
+    "compile": "tsc -p ./ && node ../../scripts/vendor-modules.mjs",
+    "watch": "node ../../scripts/vendor-modules.mjs && tsc -watch -p ./",
     "lint": "tsc --noEmit -p ./",
     "test": "node --test test/*.test.mjs",
     "clean": "rimraf out server",

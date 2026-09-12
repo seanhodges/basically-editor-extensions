@@ -1,0 +1,5 @@
+schema: spec-driven
+created: 2026-09-12
+goal: "Say which machine a listing is being checked against, where the user is
+  already looking, so that a listing the server colours nothing in explains
+  itself rather than looking like a client that has stopped working."

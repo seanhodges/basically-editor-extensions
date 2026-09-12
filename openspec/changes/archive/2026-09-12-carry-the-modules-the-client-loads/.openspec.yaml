@@ -1,0 +1,6 @@
+schema: spec-driven
+created: 2026-09-12
+goal: "Carry the modules the compiled client loads beside it, so an installed
+  client can load its own entry point - and fail the build where it could not,
+  because a client whose entry point will not load runs no activation at all and
+  answers every command it contributes as not found."

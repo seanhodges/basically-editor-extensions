@@ -1,7 +1,6 @@
 # Sources — only the compiled output in out/ ships
 src/**
 **/*.ts
-!out/**/*.d.ts
 
 # Build configuration
 tsconfig.json
@@ -29,3 +28,12 @@ node_modules/**
 # and is re-included explicitly because `node_modules/**` above would drop it.
 !server/**
 !server/node_modules/**
+
+# Two accounts of modules, and they are about different trees. `node_modules/**`
+# above is the workspace's, which `clients/*` being a workspace glob hoists to
+# the repository root and which is no part of this package — the packager
+# excludes it before this file is consulted either way, so nothing here could
+# re-include it. What the client actually loads travels in out/node_modules/,
+# put there by scripts/vendor-modules.mjs beside the compiled client that
+# requires it, and matches none of the patterns above. Nothing to add here;
+# this is written down so that the next person to look does not add it.

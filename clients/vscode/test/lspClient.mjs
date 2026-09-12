@@ -11,15 +11,17 @@
  */
 import { spawn } from 'node:child_process';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const { encodeFrame, FrameReader } = await import(
-  path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '..',
-    'out',
-    'framing.js',
-  )
+  pathToFileURL(
+    path.resolve(
+      path.dirname(fileURLToPath(import.meta.url)),
+      '..',
+      'out',
+      'framing.js',
+    ),
+  ).href
 );
 
 export class LspClient {
