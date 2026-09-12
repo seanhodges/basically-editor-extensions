@@ -40,6 +40,9 @@ const { argsFor, envFor, launchFor, locateServer } = await import(
 const { Operations, planRun } = await import(
   pathToFileURL(path.join(clientDir, 'out', 'operations.js')).href
 );
+const { planDebug } = await import(
+  pathToFileURL(path.join(clientDir, 'out', 'machineDebug.js')).href
+);
 
 // Normally the bundled copy. `BASICALLY_SERVER_PATH` points the same
 // conversation at a checkout of the toolchain, which is how a server that is
@@ -408,6 +411,236 @@ describe('a machine of the editor’s own', () => {
         (await operations.call('look', {})).screen.lines.join('\n'),
         /THEEDITORS/,
         'the command line disturbed the editor’s machine',
+      );
+    } finally {
+      if (!before.running) await cli('server', 'stop').catch(() => {});
+    }
+  });
+});
+
+
+/**
+ * A program stopped on a line, on a real machine.
+ *
+ * The third thing the extension asks of the toolchain, and the one no amount of
+ * checking the client against itself can establish: whether this machine can be
+ * stepped, whether a run given lines to stop before actually stops at one, and
+ * whether a stopped program answers about where it is and what it holds. A
+ * server that does not serve the debugger answers none of it, which is why this
+ * suite says so out loud rather than passing.
+ */
+describe('a program the editor can stop on a line', () => {
+  let operations;
+  let machines;
+  /** The first machine this copy can both run and step, or null where none. */
+  let steppable = null;
+  /** One it can run and cannot step, which is a different answer from a refusal. */
+  let unsteppable = null;
+
+  /**
+   * A listing with two stops worth having, and a variable to read at each.
+   *
+   * `LET`, `FOR`, `NEXT` and `PRINT` for the same reason the listing above only
+   * prints: which machine these tests use is the toolchain's to change, so the
+   * listing has to be one every machine accepts.
+   *
+   * The loops are what make the stops reachable. A machine runs its program
+   * between the frames a stop is looked for in, and the faster machines get
+   * through a handful of statements inside the first frame — so a listing short
+   * enough to finish in one is over before anything could stop it. Five hundred
+   * iterations is more than a frame's worth on the quickest machine here and
+   * still seconds of the slowest machine's own time.
+   */
+  const STOPPABLE = [
+    '10 LET A=1',
+    '20 FOR I=1 TO 500',
+    '30 NEXT I',
+    '40 LET A=2',
+    '50 FOR I=1 TO 500',
+    '60 NEXT I',
+    '70 PRINT A',
+    '',
+  ].join('\n');
+
+  before(async () => {
+    operations = Operations.start(launch);
+    machines = await operations.machines();
+    for (const machine of machines) {
+      if (!machine.canRun) continue;
+      const facts = await operations.info(machine.id);
+      if (facts.canStep && !steppable) steppable = machine;
+      if (!facts.canStep && !unsteppable) unsteppable = machine;
+      if (steppable && unsteppable) break;
+    }
+  });
+
+  after(async () => {
+    await operations?.dispose();
+  });
+
+  it('says of a machine whether it can be stepped, as well as whether it can be run', async (t) => {
+    if (!steppable) {
+      t.skip('this server can step no machine it can run; none of this is exercised');
+      return;
+    }
+    // Two questions and the second is the narrower, which is the whole reason
+    // the client asks it: a server can run a machine that cannot say which
+    // BASIC line it is executing.
+    const facts = await operations.info(steppable.id);
+    assert.equal(facts.canRun, true);
+    assert.equal(facts.canStep, true);
+    assert.deepEqual(planDebug({ kind: 'run', machine: steppable }, facts.canStep), {
+      kind: 'debug',
+      machine: steppable,
+    });
+  });
+
+  it('answers about a machine that cannot be stepped rather than failing', async (t) => {
+    if (!unsteppable) {
+      t.skip('every machine this server can run can be stepped');
+      return;
+    }
+    const facts = await operations.info(unsteppable.id);
+    assert.equal(facts.canStep, false, `${unsteppable.id} is said to be steppable`);
+    // Which is what the client turns into a sentence and an offer to run the
+    // listing instead, rather than a failure after the fact.
+    assert.deepEqual(planDebug({ kind: 'run', machine: unsteppable }, facts.canStep), {
+      kind: 'cannot-step',
+      machine: unsteppable,
+    });
+  });
+
+  it('stops a run before a line it was given, and steps on to the next', async (t) => {
+    if (!steppable) {
+      t.skip('this server can step no machine it can run');
+      return;
+    }
+    // The stops travel with the run: by the time a machine is up the program
+    // has already reached wherever it was going.
+    const report = await operations.debugRun(steppable.id, STOPPABLE, [40]);
+    assert.deepEqual(
+      report.errors.filter((problem) => problem.fatal !== false),
+      [],
+      'the listing this test stops is not one this machine accepts',
+    );
+    assert.equal(report.stoppedAt, 40, 'the run did not stop where it was told to');
+
+    const where = await operations.where();
+    assert.equal(where.canStep, true);
+    assert.equal(where.line, 40);
+    assert.deepEqual(where.breakpoints, [40]);
+
+    // What the variables pane is filled from, read off the machine the program
+    // is stopped on rather than worked out here.
+    const variables = await operations.variables();
+    assert.ok(
+      variables.variables === null || Array.isArray(variables.variables),
+      'a stopped program answered neither variables nor that it has none to give',
+    );
+    if (variables.variables !== null) {
+      const a = variables.variables.find((variable) => variable.name === 'A');
+      assert.ok(a, 'the variable the listing set is not among the ones reported');
+    }
+
+    // And a step reports the line it is now stopped before, which is what moves
+    // the editor's highlight on.
+    const stepped = await operations.step();
+    assert.equal(stepped.canStep, true);
+    assert.equal(stepped.ending, 'stopped');
+    assert.equal(stepped.line, 50);
+  });
+
+  it('stops again at a line added between two stops', async (t) => {
+    if (!steppable) {
+      t.skip('this server can step no machine it can run');
+      return;
+    }
+    await operations.ask('release');
+    const report = await operations.debugRun(steppable.id, STOPPABLE, [40]);
+    assert.equal(report.stoppedAt, 40);
+    // A breakpoint added while a program is stopped is in force for the rest of
+    // the session, which is the whole of what changing them mid-session means.
+    const set = await operations.setBreakpoints([40, 70]);
+    assert.equal(set.canStep, true);
+    assert.deepEqual(set.lines, [40, 70]);
+    const resumed = await operations.resume();
+    assert.equal(resumed.ending, 'stopped');
+    assert.equal(resumed.line, 70);
+  });
+
+  it('refuses to stop on a machine that cannot be stepped, and says why', async (t) => {
+    if (!unsteppable) {
+      t.skip('every machine this server can run can be stepped');
+      return;
+    }
+    await operations.ask('release');
+    // Said rather than attempted: a run that accepted the lines and never
+    // stopped would leave the user watching a program that was never going to
+    // pause.
+    await assert.rejects(
+      operations.debugRun(unsteppable.id, STOPPABLE, [40]),
+      (error) => /step/i.test(error.message),
+      `${unsteppable.id} accepted lines to stop before`,
+    );
+  });
+
+  it('mirrors the machine at an address, without letting it be driven', async (t) => {
+    if (!steppable) {
+      t.skip('this server can step no machine it can run');
+      return;
+    }
+    await operations.ask('release');
+    await operations.debugRun(steppable.id, STOPPABLE, [40]);
+    const viewed = await operations.view();
+    assert.equal(viewed.problem, null, 'the machine a session stops cannot be shown');
+    // An address is only worth having if something is behind it: the panel puts
+    // exactly this into a frame and adds nothing of its own.
+    assert.equal((await fetch(viewed.address)).status, 200);
+  });
+
+  it('holds its stopped program apart from the one the command line stopped', async (t) => {
+    if (!steppable) {
+      t.skip('this server can step no machine it can run');
+      return;
+    }
+    const cli = (...operation) =>
+      execFileAsync(launch.command, argsFor(launch, ...operation), {
+        env: envFor(launch),
+        maxBuffer: 4 * 1024 * 1024,
+      });
+
+    const before = JSON.parse((await cli('server', 'status', '--json')).stdout);
+    if (!before.running) await cli('server', 'start');
+    try {
+      await operations.ask('release');
+      await operations.debugRun(steppable.id, STOPPABLE, [40]);
+
+      const listing = path.join(
+        mkdtempSync(path.join(tmpdir(), 'basically-test-')),
+        'theirs.bas',
+      );
+      writeFileSync(listing, STOPPABLE);
+      try {
+        await cli('run', '-m', steppable.id, '--hold', '--break', '70', '--json', listing);
+      } catch (error) {
+        if (before.running) {
+          t.skip(`a host that is not this toolchain is already running: ${error.message}`);
+          return;
+        }
+        throw error;
+      }
+
+      // Two machines, each stopped where its own caller stopped it. A client
+      // reaching through the command line's shared session would find the
+      // editor's program on the command line's line.
+      const ours = await operations.where();
+      const theirs = JSON.parse((await cli('where', '--json')).stdout);
+      assert.equal(ours.line, 40, 'the editor lost the line it stopped on');
+      assert.equal(theirs.line, 70, 'the command line lost the line it stopped on');
+      assert.equal(
+        (await operations.where()).line,
+        40,
+        'the command line disturbed the program the editor had stopped',
       );
     } finally {
       if (!before.running) await cli('server', 'stop').catch(() => {});

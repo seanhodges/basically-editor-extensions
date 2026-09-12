@@ -141,8 +141,8 @@ pressing keys at a picture.
 
 **Alternatives considered.** *Hand over to the driving channel while input is
 needed and back afterwards* — what a user would most expect, and it suspends
-every guarantee mid-session, twice, at moments the user did not choose; left as
-an open question rather than a decision. *A third projection that mirrors and
+every guarantee mid-session, twice, at moments the user did not choose; ruled
+out for this change rather than left open. *A third projection that mirrors and
 forwards keys* — the right long-term answer and not this client's to invent: it
 is a toolchain capability, and asking for one before this has been lived with
 would be designing for a complaint nobody has made yet.
@@ -150,16 +150,40 @@ would be designing for a complaint nobody has made yet.
 ### The adapter declines what it cannot do, in the handshake
 
 **Decision.** The adapter's answer to the editor's opening question claims
-stepping over and continuing and nothing else: no stepping in or out, no setting
-a variable, no conditional breakpoints, no hit counts, no logpoints, no data
-breakpoints, no restart, no disassembly.
+stepping over and continuing and nothing else: no setting a variable, no
+conditional breakpoints, no hit counts, no logpoints, no data breakpoints, no
+restart, no disassembly. What that answer does not reach — stepping in and out —
+is settled by the decision below.
 
 **Why.** The editor renders its debug toolbar and its context menus from that
 answer, so anything claimed and unimplemented becomes a button that does nothing
 — which is the same fault as a semantic token the manifest gives no scope, and
 this repo already treats that as a fault in the client rather than a gap in the
 server. Declining is also how the user learns what a BASIC debugger is, without
-reading anything.
+reading anything. It is checked both ways, like the token scopes: every control
+claimed is answered, and every control answered is claimed.
+
+### Stepping in and stepping out are stepping
+
+**Decision.** The adapter declines everything the editor's own manifest of
+capabilities actually removes — setting a variable, a condition or a hit count
+on a breakpoint, a logpoint, a data breakpoint, a restart, a disassembly — and
+answers stepping into and stepping out of by running the program on to its next
+BASIC line, which is what stepping over does.
+
+**Why.** The editor draws Step Into and Step Out for every stopped session and
+no declaration removes them: unlike the others, they are not gated on anything
+the adapter says. So the choice is not between offering them and not; it is
+between two buttons that fail when used and two that do the one thing there is
+to do. Where nothing can be stepped into, stepping in is stepping — the same
+answer a debugger for any language gives on a line with no call on it — and
+"a control the user is offered does what it says" is the rule that survives.
+
+**Alternatives considered.** *Leave them unimplemented* — keeps the list of what
+is claimed literally true and puts a notification behind two buttons, which the
+same requirement forbids. *Step Out continues to the end of the program* — the
+conventional reading for the outermost frame, and it would run past every
+remaining breakpoint, which is not what a user pressing it expects.
 
 ### Whether a machine can be stepped is asked, not carried
 
@@ -189,10 +213,9 @@ line 100.
 
 - **`INPUT` under the debugger is awkward and users will say so** → The console
   is the input path, and it is a worse experience than typing at the screen.
-  Mitigated by saying it at the moment a program waits, rather than in
-  documentation. Named as the first open question because the two ways out — a
-  mid-session handover, or a new toolchain projection — are both larger than this
-  change.
+  Mitigated by saying it at the moment a program stops answering, rather than in
+  documentation. Left as it is because the two ways out — a mid-session handover,
+  or a new toolchain projection — are both larger than this change.
 - **Nothing here can be tested until the toolchain ships its debugger** → Same
   shape as the panel change and the same mitigation: the override that points the
   suite at a toolchain checkout, and a run against a server without the debugger
@@ -215,17 +238,28 @@ line 100.
   its bound out occupies the conversation for that long, and the client must not
   block the editor on it.
 
-## Open Questions
+## Questions this change closed
 
-- Whether a debug session should be able to hand over to the driving channel when
-  a program needs typing, and take it back afterwards. It is what a user would
-  expect and it suspends the session's guarantees while it lasts; worth deciding
-  after the console path has been used in anger.
-- Whether starting a debug session on a listing that declares no machine, and
-  whose machine cannot be inferred, should refuse or should ask — the same
-  question the panel change leaves open about its command, and it should be
-  answered the same way in both.
-- Whether the mirrored screen belongs in the panel the run command opens or in a
-  surface of the debug session's own. Sharing it is fewer things on screen;
-  separating it means a session and a played machine can be looked at side by
-  side, which nothing yet needs.
+- **Whether a debug session may hand over to the driving channel when a program
+  needs typing, and take it back afterwards: no, not in this change.** The
+  console is the only input path. A handover suspends every guarantee the
+  session rests on — twice, at moments the user did not choose — and the two
+  ways of doing it properly are both larger than this: a toolchain projection
+  that mirrors and forwards keys, or a session that can be told to stand down
+  and resume. Neither is this client's to invent before the console path has
+  been lived with, and inventing one now would be designing for a complaint
+  nobody has made.
+- **Whether the mirrored screen belongs in the panel the run command opens or in
+  a surface of its own: the panel.** One machine to a window means one screen to
+  look at, and a played machine and a debugged one are never the same machine at
+  the same time — so a second surface would show, at best, the same machine
+  twice and, at worst, a stale picture of one that had been let go. The panel is
+  captioned while it mirrors, so which of the two is being shown is never in
+  doubt. A session and a played machine side by side is the thing this gives up,
+  and nothing yet needs it.
+- **Whether starting a debug session on a listing whose machine cannot be
+  settled should refuse or ask: refuse, and say what to set.** Answered the way
+  the run command answers it, which is what the question asked for: the user is
+  told exactly which setting to reach for and the setting named is one the
+  client contributes. Asking would be a second way of choosing a machine beside
+  the one the status bar already offers.

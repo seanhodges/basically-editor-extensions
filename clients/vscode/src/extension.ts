@@ -21,6 +21,10 @@ import {
   type ServerOptions,
 } from 'vscode-languageclient/node';
 
+import {
+  endDebugSessionForRun,
+  registerMachineDebug,
+} from './machineDebugAdapter';
 import { closeMachinePanel, MachinePanel } from './machinePanel';
 import { MachineStatusItem } from './machineStatusItem';
 import { argsFor, envFor, launchFor, locateServer, type ServerLaunch } from './server';
@@ -183,6 +187,14 @@ async function runListing(context: vscode.ExtensionContext): Promise<void> {
     );
     return;
   }
+  // A machine is played or debugged and never both, so the session goes first
+  // and the user is told it did rather than finding it no longer stops
+  // anywhere.
+  if (await endDebugSessionForRun()) {
+    void vscode.window.showInformationMessage(
+      'The debug session has ended; this machine is now one you can type at.',
+    );
+  }
   const panel = MachinePanel.show(outputChannel());
   await panel.play(editor.document, context.extensionPath);
 }
@@ -212,6 +224,9 @@ export async function activate(
   // starts: the listing whose machine could not be settled and the client that
   // never loaded look alike, and this is what tells them apart.
   MachineStatusItem.register(context, outputChannel());
+  // Also independent of it: a debug session and the language server are two
+  // conversations, and restarting one leaves the other alone.
+  registerMachineDebug(context, outputChannel());
   await activateClient(context);
 }
 

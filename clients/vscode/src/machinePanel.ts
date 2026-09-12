@@ -1,13 +1,21 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 /**
- * The panel a listing is played in.
+ * The panel a listing is played in, and watched in while it is debugged.
  *
  * A thin shell around a frame pointed at the address the toolchain gives back.
  * The client does not draw the machine, does not translate keys, and does not
  * read what crosses that frame: how the picture and the keys are carried is
  * private to the toolchain and may change, and the only thing it promises is an
  * address to put in a frame.
+ *
+ * The toolchain gives two such addresses and they are not interchangeable. One
+ * drives the machine, which is what running a listing opens; the other mirrors
+ * it, which is what a debug session opens, because a machine being driven by a
+ * person runs on its own clock and a machine on its own clock is not one that
+ * can be stopped on a line or measured. The two share this panel: one machine
+ * to a window means one screen to look at, and a played machine and a debugged
+ * one are never the same machine at the same time.
  */
 import * as vscode from 'vscode';
 
@@ -67,6 +75,24 @@ export class MachinePanel {
     return current;
   }
 
+  /** The panel this window has, or none where nothing has been run yet. */
+  static current(): MachinePanel | undefined {
+    return current;
+  }
+
+  /**
+   * The conversation this window's machine is held on, started if need be.
+   *
+   * One connection to a window, because the toolchain gives one machine to one
+   * connection: the panel and a debug session ask different things of the same
+   * machine rather than holding one each.
+   */
+  connection(launch: ServerLaunch): Operations {
+    return (this.#operations ??= Operations.start(launch, (line) =>
+      this.#channel.appendLine(line),
+    ));
+  }
+
   /** Close the panel, which lets the machine go. */
   close(): void {
     this.#panel.dispose();
@@ -87,16 +113,7 @@ export class MachinePanel {
     this.#say('Starting the machine…');
 
     const config = vscode.workspace.getConfiguration(CONFIG_SECTION, document.uri);
-    // Resolved for this operation rather than remembered from the language
-    // server's, so a settings change reaches both conversations alike.
-    const launch = launchFor(
-      locateServer(config.get<string>('server.path', ''), extensionPath),
-      {
-        configuredNodePath: config.get<string>('server.nodePath', ''),
-        editorExecPath: process.execPath,
-        editorNodeVersion: process.versions.node,
-      },
-    );
+    const launch = launchForDocument(document, extensionPath);
 
     try {
       await this.#playOn(document, config, launch);
@@ -119,6 +136,47 @@ export class MachinePanel {
     }
   }
 
+  /**
+   * Show the machine as a mirror, which is what a debug session watches.
+   *
+   * The same frame as playing, pointed at the other address and captioned, so
+   * the user is not left pressing keys at a picture. How keys actually reach a
+   * debugged program is said in the debug console at the moment a program
+   * stops answering, which is when it matters.
+   */
+  async mirror(address: string, machineName: string): Promise<void> {
+    await this.#frame(
+      address,
+      machineName,
+      `Mirroring the ${machineName} while it is debugged — send it keys from ` +
+        'the debug console.',
+    );
+  }
+
+  /** The debug session let the machine go, so there is nothing to show. */
+  sessionEnded(machineName: string): void {
+    this.#say(
+      `The debug session has ended and the ${machineName} has been let go.`,
+      'Start another session to stop the listing on a line again, or run it to ' +
+        'play the machine and type at it.',
+    );
+  }
+
+  /** Reveal this panel without disturbing what it is showing. */
+  reveal(): void {
+    this.#panel.reveal(vscode.ViewColumn.Beside, true);
+  }
+
+  /** Title the panel for the listing a session is about. */
+  titleFor(document: vscode.TextDocument, suffix = ''): void {
+    this.#panel.title = `Basically — ${shortName(document)}${suffix}`;
+  }
+
+  /** What the panel says while nothing is showing yet. */
+  starting(heading: string): void {
+    this.#say(heading);
+  }
+
   async #playOn(
     document: vscode.TextDocument,
     config: vscode.WorkspaceConfiguration,
@@ -127,9 +185,7 @@ export class MachinePanel {
     // Started on the first run rather than at activation, so a user who never
     // runs a listing never pays for a second toolchain process. Kept afterwards,
     // because letting it go would let the machine go with it.
-    const operations = (this.#operations ??= Operations.start(launch, (line) =>
-      this.#channel.appendLine(line),
-    ));
+    const operations = this.connection(launch);
     // A connection holds one machine, so the one a previous run left is let go
     // before this run asks for another. A no-op on the first run.
     await operations.ask('release');
@@ -243,8 +299,15 @@ export class MachinePanel {
     return true;
   }
 
-  /** The frame, pointed at the address, with nothing of ours added to it. */
-  async #frame(address: string, machineName: string): Promise<void> {
+  /**
+   * The frame, pointed at the address, with nothing of ours added to it beyond
+   * a caption where one is called for.
+   */
+  async #frame(
+    address: string,
+    machineName: string,
+    caption?: string,
+  ): Promise<void> {
     // Where the extension runs on one machine and the window is on another the
     // address is on the wrong side; this is what carries it across, and costs
     // nothing when both are the same machine.
@@ -261,10 +324,20 @@ export class MachinePanel {
     <title>${escape(machineName)}</title>
     <style>
       html, body { height: 100%; margin: 0; background: #000; }
-      iframe { display: block; width: 100%; height: 100%; border: 0; }
+      body { display: flex; flex-direction: column; }
+      p.caption {
+        margin: 0;
+        padding: 0.4rem 0.75rem;
+        font-family: var(--vscode-font-family);
+        font-size: var(--vscode-font-size);
+        color: var(--vscode-descriptionForeground);
+        background: var(--vscode-editorWidget-background);
+      }
+      iframe { display: block; flex: 1; width: 100%; border: 0; }
     </style>
   </head>
   <body>
+    ${caption ? `<p class="caption">${escape(caption)}</p>` : ''}
     <iframe
       src="${escape(external.toString(true))}"
       title="${escape(machineName)}"
@@ -300,6 +373,29 @@ export class MachinePanel {
   </body>
 </html>`;
   }
+}
+
+/**
+ * Where the server is and what runs it, for the listing being acted on.
+ *
+ * Resolved for each operation rather than remembered from the language
+ * server's, so a settings change reaches every conversation alike; and scoped
+ * to the document, because a workspace may point one folder at a server of its
+ * own.
+ */
+export function launchForDocument(
+  document: vscode.TextDocument,
+  extensionPath: string,
+): ServerLaunch {
+  const config = vscode.workspace.getConfiguration(CONFIG_SECTION, document.uri);
+  return launchFor(
+    locateServer(config.get<string>('server.path', ''), extensionPath),
+    {
+      configuredNodePath: config.get<string>('server.nodePath', ''),
+      editorExecPath: process.execPath,
+      editorNodeVersion: process.versions.node,
+    },
+  );
 }
 
 /**
