@@ -189,16 +189,21 @@ a guarantee it already has.
   editor's external-URI mapping is designed for this, but it is the one
   assumption in this design that would invalidate the whole panel if it did not
   hold. Verify it against a remote workspace before the panel is built out, not
-  after. **Still to be verified by hand.** The panel is written to the documented
-  contract — the address goes through `vscode.env.asExternalUri`, and the
+  after. **Still to be verified by hand, and now the only part that is.** A
+  hands-on run has shown the frame carrying the machine's own display and taking
+  keys, under content rules that allow the origin `asExternalUri` gives back and
+  nothing else — but that run had the window and the extension on one machine,
+  where the mapping is asked for nothing. The remote leg stands on the documented
+  contract: the address goes through `vscode.env.asExternalUri`, and the
   webview's content rules name the origin that comes back rather than the one
-  that went in, so a mapped address is the one allowed in the frame — but
-  nothing here has been run inside an editor, remote or local, and the three
-  checks that would settle it are unticked in `tasks.md` for that reason.
+  that went in, so a mapped address is the one allowed in the frame.
 - **The editor may swallow the machine's keys, or the machine the editor's** →
   A frame taking raw keystrokes sits inside an application with its own
   keybindings. Some chords will not reach the machine. Mitigated by saying which,
-  where the panel is documented, rather than fighting the editor for them.
+  where the panel is documented, rather than fighting the editor for them — and
+  the hands-on run saw none taken on the way, so what is documented is the rule
+  rather than a list: the workbench claims what the user has bound there, which
+  is the only thing that stays true of somebody else's keybindings.
 - **The panel's address admits acting on a machine** → The toolchain protects it
   by possession alone and says so; a client that repeats that sentence loosely
   understates it. The READMEs must say, in the client's own words, that whoever
