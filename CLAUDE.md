@@ -107,11 +107,14 @@ vim -u NONE -c 'set rtp+=clients/vim' -c 'runtime plugin/basically.vim' file.bas
 | `clients/vscode/src/server.ts`          | Where the server is and what runs it — kept free of `vscode` so a plain Node test can drive it |
 | `clients/vscode/src/framing.ts`         | `Content-Length`-framed JSON, driven by both the extension and the tests         |
 | `clients/vscode/src/operations.ts`      | The toolchain's operations conversation, and which machine a listing runs on — also free of `vscode` |
+| `clients/vscode/src/machineStatus.ts`   | What the user is told about the machine in force, and when it is worth asking again — also free of `vscode` |
+| `clients/vscode/src/machineStatusItem.ts` | The status bar item that says it, and the conversation it asks through          |
 | `clients/vscode/src/machinePanel.ts`    | The panel, and the frame pointed at the address the toolchain gives back        |
 | `clients/vscode/src/roms.ts`            | Asking the toolchain what images are held, and recording the user's agreement   |
 | `clients/vscode/package.json`           | The extension manifest, and the **one place** the server version is pinned        |
 | `clients/vscode/test/handshake.test.mjs`| The client-against-server check, over a hand-rolled LSP client in `lspClient.mjs` |
 | `clients/vscode/test/package.test.mjs`  | The package-against-itself check: every module the entry point loads, resolved from inside the package |
+| `clients/vscode/test/machineStatus.test.mjs` | The client-against-itself check: what the user is shown for each answer, over no server at all |
 | `clients/vim/plugin/basically.vim`      | Registration with whichever LSP host is present                                   |
 | `scripts/fetch-server.mjs`              | Puts the pinned server inside the VS Code client at build time                    |
 | `scripts/vendor-modules.mjs`            | Puts the modules the compiled client loads beside it, at the versions the lockfile resolved |

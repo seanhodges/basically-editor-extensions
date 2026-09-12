@@ -5,8 +5,9 @@
  *
  * Everything the user sees comes from the server: problems, completion, hover,
  * jump-to-definition, the outline, a variable's uses, and colour. This file
- * starts it, keeps `basically.machine` flowing to it, and offers the three
- * commands the protocol has no place for.
+ * starts it, keeps `basically.machine` flowing to it, offers the three commands
+ * the protocol has no place for, and says which machine the listing being
+ * edited is checked against.
  */
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -21,6 +22,7 @@ import {
 } from 'vscode-languageclient/node';
 
 import { closeMachinePanel, MachinePanel } from './machinePanel';
+import { MachineStatusItem } from './machineStatusItem';
 import { argsFor, envFor, launchFor, locateServer, type ServerLaunch } from './server';
 
 const LANGUAGE_ID = 'basically';
@@ -206,6 +208,10 @@ export async function activate(
       await activateClient(context);
     }),
   );
+  // Registered before the server is started, and independent of whether it
+  // starts: the listing whose machine could not be settled and the client that
+  // never loaded look alike, and this is what tells them apart.
+  MachineStatusItem.register(context, outputChannel());
   await activateClient(context);
 }
 

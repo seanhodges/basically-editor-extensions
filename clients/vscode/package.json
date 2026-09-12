@@ -2,7 +2,7 @@
   "name": "basically-vscode",
   "displayName": "Basically",
   "description": "Language support for retro BASIC — problems, completion, hover, jump-to-definition, outline and colour, for the machine each listing is written for.",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "publisher": "basically",
   "license": "GPL-3.0-or-later",
   "private": true,

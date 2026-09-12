@@ -70,6 +70,12 @@ takes the first of these that answers:
 3. **It can be worked out** from the listing's own text — and where several
    machines would read it equally, you're told to choose rather than guessed at.
 
+Whichever of those answered, the status bar says which machine the listing
+you're editing is being checked against, and says as plainly when none could be
+settled — so a listing that's correctly left uncoloured doesn't look like an
+extension that has stopped working. Click it to choose a machine. It's the
+status bar's, so you can hide it there like anything else.
+
 ## Settings
 
 | Setting                     | What it does                                                       |
