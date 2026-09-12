@@ -40,6 +40,29 @@ over its stdio.
               └────────────────────────────┘
 ```
 
+## Running and debugging a machine
+
+The VS Code client does two more things with the same toolchain, over the
+toolchain's operations conversation rather than over LSP: it runs a listing and
+plays its machine in a panel, and it debugs one against the editor's own
+gutter, stopped line, variables pane and step controls.
+
+The two are different and the client says which you got. **Playing** is a
+machine on its own clock that you type at. **Debugging** is a machine that
+advances only as far as the editor asked, and its screen is a mirror: a machine
+somebody is typing at cannot be stopped on a line or measured, so keys reach a
+debugged program by being asked for, as a schedule typed in the debug console.
+Starting one ends the other.
+
+A breakpoint is a BASIC line number, not a row: a row carrying no number is
+reported back as a breakpoint that will not be hit rather than moved to a line
+the user did not choose. Whether a machine can be stepped at all is asked of the
+server that was found — it is a narrower question than whether that server can
+run the machine, and narrower again than serving the language.
+
+Every answer is the server's. The client starts nothing, decides nothing about a
+machine, and holds no knowledge of which machines can be stepped.
+
 ## Layout
 
 ```

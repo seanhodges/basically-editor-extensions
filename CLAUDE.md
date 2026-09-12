@@ -111,10 +111,14 @@ vim -u NONE -c 'set rtp+=clients/vim' -c 'runtime plugin/basically.vim' file.bas
 | `clients/vscode/src/machineStatusItem.ts` | The status bar item that says it, and the conversation it asks through          |
 | `clients/vscode/src/machinePanel.ts`    | The panel, and the frame pointed at the address the toolchain gives back        |
 | `clients/vscode/src/roms.ts`            | Asking the toolchain what images are held, and recording the user's agreement   |
+| `clients/vscode/src/debugLines.ts`      | Which BASIC line a row carries, and which row a line is on — also free of `vscode` |
+| `clients/vscode/src/machineDebug.ts`    | The debug conversation: the controls offered, and what a stopped program answers — also free of `vscode` |
+| `clients/vscode/src/machineDebugAdapter.ts` | The debug type, the configuration filled in for a user who wrote none, and the adapter handed over inline |
 | `clients/vscode/package.json`           | The extension manifest, and the **one place** the server version is pinned        |
 | `clients/vscode/test/handshake.test.mjs`| The client-against-server check, over a hand-rolled LSP client in `lspClient.mjs` |
 | `clients/vscode/test/package.test.mjs`  | The package-against-itself check: every module the entry point loads, resolved from inside the package |
 | `clients/vscode/test/machineStatus.test.mjs` | The client-against-itself check: what the user is shown for each answer, over no server at all |
+| `clients/vscode/test/machineDebug.test.mjs` | The other client-against-itself check: which controls a session offers, and what a row means to a machine |
 | `clients/vim/plugin/basically.vim`      | Registration with whichever LSP host is present                                   |
 | `scripts/fetch-server.mjs`              | Puts the pinned server inside the VS Code client at build time                    |
 | `scripts/vendor-modules.mjs`            | Puts the modules the compiled client loads beside it, at the versions the lockfile resolved |
@@ -131,9 +135,11 @@ vim -u NONE -c 'set rtp+=clients/vim' -c 'runtime plugin/basically.vim' file.bas
 - **Which runtime** runs it: what the user configured, `node` on `PATH`, then
   the editor's own. First new enough wins.
 
-Serving the language and running a machine ask different things of a server, and
-the second is the narrower: **whether a machine can be run is always asked of
-the server that was found**, never decided from anything a client holds.
+Serving the language, running a machine and stepping one ask different things of
+a server, and each is narrower than the last: **whether a machine can be run, and
+whether it can be stepped, are always asked of the server that was found**, never
+decided from anything a client holds. A machine that can be run cannot thereby be
+stepped — not every machine can say which BASIC line it is executing.
 
 ## Conventions
 
@@ -155,6 +161,12 @@ the server that was found**, never decided from anything a client holds.
 - **Every semantic token type the server advertises needs a scope in the
   manifest**, or those runs are silently uncoloured and nothing tells the user
   why. `handshake.test.mjs` checks this against the live server's legend.
+- **Every debug control the adapter declares must be one it answers, and every
+  one it answers must be declared** — the same two-way check, for the same
+  reason: a control claimed and unimplemented is a button that does nothing.
+  `machineDebug.test.mjs` checks it. The two the editor draws whatever a client
+  declares, stepping in and stepping out, run on to the next BASIC line, because
+  a control the user is offered has to do what it says.
 - **A setting named in a server diagnostic must be one a client contributes**,
   or the user is told to set something that does not exist. Also checked there.
 - **The packaged `.vsix` carries a GPL program and must ship its `LICENSE`.**

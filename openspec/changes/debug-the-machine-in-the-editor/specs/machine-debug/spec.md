@@ -100,9 +100,15 @@ those things. After each, the editor SHALL show where the program now is and wha
 its variables now hold.
 
 The client SHALL claim only what BASIC on these machines can do — going on to the
-next line, and continuing — and SHALL NOT offer stepping into or out of anything,
-setting a variable, or any other control it cannot carry out. A control the user
-is offered SHALL do what it says.
+next line, and continuing — and SHALL NOT claim setting a variable, a breakpoint
+with a condition or a hit count, a logpoint, a data breakpoint, a restart, a
+disassembly, or any other control it cannot carry out. A control the user is
+offered SHALL do what it says.
+
+Where the editor offers a form of stepping the client cannot decline, that
+control SHALL run the program on to its next BASIC line, and SHALL NOT be
+answered with a failure: a language with no call stack has nothing to step into
+or out of, so going on to the next line is what stepping in any form means here.
 
 When the program ends, the session SHALL end and SHALL say the program ended
 rather than leaving the editor showing a program stopped on a line.
@@ -127,8 +133,15 @@ rather than leaving the editor showing a program stopped on a line.
 #### Scenario: Controls that are not offered
 
 - **WHEN** the user looks at the controls a debug session offers
-- **THEN** only going on to the next line and continuing are offered, and nothing
-  is offered that the session cannot carry out
+- **THEN** nothing is offered that the session cannot carry out: no setting of a
+  variable, no condition or hit count on a breakpoint, no logpoint, no data
+  breakpoint, no restart and no disassembly
+
+#### Scenario: Stepping where there is nothing to step into
+
+- **WHEN** the user uses a form of stepping the editor offers whatever the client
+  declares, such as stepping into or out of
+- **THEN** the program runs on to its next BASIC line, and nothing fails
 
 ### Requirement: A debugged program is sent keys deliberately, and is told so
 

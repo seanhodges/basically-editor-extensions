@@ -44,6 +44,52 @@ workbench level, and the editor's own defaults, are taken before the panel sees
 them. Rebind what you need for a particular game under **Preferences: Open
 Keyboard Shortcuts**.
 
+## Debugging a listing
+
+Start debugging the way you start debugging anything else — **Run and Debug**,
+or <kbd>F5</kbd> — and the listing you're editing runs on the machine it's
+checked against, unsaved changes and all. You don't have to write a launch
+configuration; if you have one, it's used.
+
+Set a breakpoint in the gutter and the program stops before that line. The
+stopped line is highlighted, the **Variables** pane shows what the program holds
+as the machine displays it, and **Step Over** and **Continue** do what they say.
+A breakpoint is a BASIC line number, so a row carrying no line number — a blank
+row, the `#MACHINE` line — is shown as one that won't be hit, rather than
+quietly stopping somewhere else. Add and remove breakpoints while a session is
+running; the change holds for the rest of it.
+
+BASIC as these machines run it has a line and the next line, so there is nothing
+to step into or out of: every form of stepping runs on to the next BASIC line.
+Nothing sets a variable, no breakpoint takes a condition or a hit count, and
+there is no disassembly — the session offers none of it rather than offering
+buttons that fail when used.
+
+**The machine is mirrored while it's debugged, and typing at it does nothing.**
+A machine somebody is typing at runs on its own clock, and a machine on its own
+clock is not one that can be stopped on a line or measured — so the panel shows
+the screen and takes no input. To send keys to a program that's waiting for one,
+type a schedule in the **Debug Console**: `PRESS ENTER`, or
+`TYPE "FRED"; PRESS ENTER`. A key sent that way means exactly what the same key
+means in a written schedule. `basically info <machine>` lists the key names a
+machine answers to.
+
+**Running and debugging are the two ways to start a listing, and they're
+different.** Running gives you a machine on its own clock that you type at;
+debugging gives you one that advances only as far as the editor asked. Starting
+one ends the other, and you're told that's what happened.
+
+Not every machine can say which BASIC line it's executing, and one that can't
+can't be stepped. You're told so when you ask to debug — along with the offer to
+run the listing instead, which is what's left — rather than after a failed
+session. Whether a machine can be stepped is asked of the server that's actually
+serving you, so pointing `basically.server.path` at a toolchain of your own gets
+that copy's answer.
+
+Ending the session lets the machine go. Restarting the language server doesn't
+disturb a session, and a session doesn't disturb the language server: they're
+two conversations with two children of the same toolchain.
+
 ### ROMs
 
 Most machines need their original firmware, which isn't part of the toolchain,

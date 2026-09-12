@@ -59,6 +59,83 @@ export interface PlayReport {
 }
 
 /**
+ * What `view` answers: an address a web view can be pointed at to watch.
+ *
+ * The same shape as playing and a different thing: what is at this address
+ * mirrors the machine and never drives it, and asking for it ends a play
+ * channel onto the same machine rather than running beside one.
+ */
+export interface ViewReport {
+  address: string | null;
+  already: boolean;
+  endedPlay: boolean;
+  problem: string | null;
+}
+
+/** What `info` answers about one machine. Only what the client asks is named. */
+export interface MachineFacts {
+  id: string;
+  name: string;
+  /** Whether this installation can run the machine. */
+  canRun: boolean;
+  /** Whether it can be stopped a BASIC line at a time. */
+  canStep: boolean;
+}
+
+/** How a step or a continue finished. */
+export type DebugEnding = 'stopped' | 'ended' | 'exhausted' | 'cannot-step';
+
+/** What a step or a continue did, and where it left the program. */
+export interface DebugRunReport {
+  canStep: boolean;
+  ending: DebugEnding;
+  /** The BASIC line the program is now stopped before, or null. */
+  line: number | null;
+  frames: number;
+  seconds: number;
+  running: boolean | null;
+}
+
+/** What `where` answers: where the held program is, and what stops it. */
+export interface WhereReport {
+  canStep: boolean;
+  /** The BASIC line about to execute, or null where none can be told. */
+  line: number | null;
+  /** Whether a program is running; null on a machine still taking one. */
+  running: boolean | null;
+  /** The lines in force to stop before, ascending. */
+  breakpoints: number[];
+}
+
+/** What `break` answers: the lines in force afterwards. */
+export interface BreakReport {
+  canStep: boolean;
+  lines: number[];
+}
+
+/** One of the program's variables, as the machine displays it. */
+export interface VariableReport {
+  name: string;
+  kind: 'number' | 'string' | 'number-array' | 'string-array';
+  value: string;
+}
+
+/** What `variables` answers; null on a machine that cannot report them. */
+export interface VariablesReport {
+  variables: VariableReport[] | null;
+}
+
+/** What `drive` answers: whether the schedule was carried out, and what it did. */
+export interface DriveReport {
+  ok: boolean;
+  /** One entry per action reached, each saying what it did as a sentence. */
+  steps: { outcome: string; detail: string }[];
+  frames: number;
+  /** True where an action actually sent input, as against only waiting. */
+  sentInput: boolean;
+}
+
+/**
  * What is to be done about a listing, before anything is attempted.
  *
  * Kept apart from the panel that says it, so the same decision a user meets can
@@ -304,6 +381,73 @@ export class Operations {
       time: false,
       variables: false,
     });
+  }
+
+  /**
+   * Run a listing with the lines it is to stop before already in place.
+   *
+   * Breakpoints have to reach the toolchain with the run itself: by the time a
+   * machine is up the program has already reached wherever it was going, so a
+   * first stop can only be arranged before it starts. No frame count is named,
+   * which leaves the run the toolchain's own bound — long enough for a machine
+   * to boot and a program to reach a stop, and short enough that one that never
+   * stops still answers.
+   */
+  debugRun(
+    machine: string,
+    source: string,
+    breakpoints: number[],
+  ): Promise<RunReport & { stoppedAt: number | null; ended: boolean }> {
+    return this.call('run', {
+      machine,
+      source,
+      breakpoints,
+      screenText: false,
+      screenshot: false,
+      profile: false,
+      time: false,
+      variables: false,
+    });
+  }
+
+  /** What this server says about one machine, including whether it steps. */
+  info(machine: string): Promise<MachineFacts> {
+    return this.call<MachineFacts>('info', { machine });
+  }
+
+  /** Replace the BASIC lines the held program is to stop before. */
+  setBreakpoints(lines: number[]): Promise<BreakReport> {
+    return this.call<BreakReport>('break', { lines });
+  }
+
+  /** Run the stopped program on to its next BASIC line. */
+  step(): Promise<DebugRunReport> {
+    return this.call<DebugRunReport>('step', {});
+  }
+
+  /** Run the stopped program on to its next stop or its end. */
+  resume(): Promise<DebugRunReport> {
+    return this.call<DebugRunReport>('continue', {});
+  }
+
+  /** Where the held program is; spends none of the machine's frames. */
+  where(): Promise<WhereReport> {
+    return this.call<WhereReport>('where', {});
+  }
+
+  /** What the held program's variables hold, as the machine displays them. */
+  variables(): Promise<VariablesReport> {
+    return this.call<VariablesReport>('variables', {});
+  }
+
+  /** Act on the held machine through a schedule of what to press and when. */
+  drive(script: string): Promise<DriveReport> {
+    return this.call<DriveReport>('drive', { script });
+  }
+
+  /** The address the machine can be watched at, without being driven. */
+  view(): Promise<ViewReport> {
+    return this.call<ViewReport>('view', {});
   }
 
   /** The address the machine can be played at. */
