@@ -1,22 +1,33 @@
-## 1. Confirm the two assumptions that would invalidate the design
+## 1. Confirm the assumption that would invalidate the design
 
-Neither is worth discovering after the panel is built. Both are cheap to check.
+Not worth discovering after the panel is built, and cheap to check.
 
-**Unticked, and left for a hands-on run:** none of these can be answered without
-an editor to run, and nothing in this change has been inside one. The panel is
-written to the documented contract instead — the address goes through
-`vscode.env.asExternalUri` and the webview's content rules name the origin that
-comes back from it — and `design.md` records that as an assumption rather than a
-finding. Press F5 in `clients/vscode` and tick them.
+**Confirmed in an editor:** a hands-on run against a toolchain checkout showed
+the panel with the machine's own display in it and keys reaching the machine.
+Both checks record what they found.
 
-- [ ] 1.1 Confirm a frame in a VS Code webview can show a page served from the
+The remote workspace — extension on one computer, window on another — is no
+longer part of this change. It is `play-the-machine-from-a-remote-workspace`,
+which owns confirming it and fixing whatever that turns up. The panel is written
+to the documented contract there too, and passes the address through
+`vscode.env.asExternalUri` as it always did; what moved out is the guarantee,
+not the code.
+
+- [x] 1.1 Confirm a frame in a VS Code webview can show a page served from the
       loopback address the toolchain gives back, under the webview's own content
       rules, and record what those rules had to say to allow it.
-- [ ] 1.2 Confirm the same works in a remote workspace — extension on one
-      machine, window on another — through the editor's external-URI mapping. If
-      it does not, revise the panel decision in `design.md` before going on.
-- [ ] 1.3 Confirm keystrokes reach a machine inside that frame, and record which
+      *The frame shows the machine. The rules the panel sets are
+      `default-src 'none'; frame-src <origin>; style-src 'unsafe-inline'`, where
+      the origin is the one `vscode.env.asExternalUri` gives back rather than the
+      one that went in. Naming that origin in `frame-src` is the whole of what
+      had to be said: nothing else is allowed to load, and the frame needs no
+      other grant.*
+- [x] 1.2 Confirm keystrokes reach a machine inside that frame, and record which
       chords the editor keeps for itself, for 6.1 to document.
+      *Keys reach the machine. No particular chord was seen taken by the editor
+      on the way, so 6.1 names none: what the workbench claims is whatever the
+      user has bound there, which is what the README already says and is the only
+      thing that stays true of another user's keybindings.*
 
 ## 2. Talking to the toolchain about more than the language
 

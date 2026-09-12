@@ -65,6 +65,12 @@ here asks the server for anything beyond them.
   Other operations the toolchain offers stay where they are reachable today.
 - **Debugging.** No breakpoints, no stepping, no variable inspection. This is a
   machine, played.
+- **A window on another computer.** What this change guarantees is a panel for a
+  user whose editor and extension are on one computer, which is where it has been
+  confirmed by hand. The panel passes its address through the editor's
+  external-URI mapping, which is what a remote window needs and costs nothing
+  locally, but whether that carries a machine is confirmed — and put right — in
+  `play-the-machine-from-a-remote-workspace`, not here.
 
 ## Capabilities
 
