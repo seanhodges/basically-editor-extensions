@@ -251,6 +251,16 @@ export interface DebugHost {
   path: string;
   /** Point the editor's own surface at the address the machine is mirrored at. */
   mirror(address: string): Promise<void>;
+  /**
+   * The program is somewhere new: stopped before another line, or finished.
+   *
+   * Said so that what shows the machine's variables can read them again at the
+   * moment they can have changed. A debugged machine advances only when
+   * something asks it to, so between stops there is nothing to see and nothing
+   * reads it - and a read on a timer would queue behind the step or the
+   * continue in flight, to arrive with the answer the stop was about to give.
+   */
+  moved(): void;
   /** The machine has been let go; say so where the screen was. */
   released(): Promise<void>;
 }
@@ -463,6 +473,11 @@ export class MachineDebugSession {
     ended: boolean,
     reason: 'breakpoint' | 'step' | 'pause',
   ): void {
+    // Every way a run, a step or a continue can come back arrives here, which
+    // is why this is the one place that says the program moved. It holds for
+    // the endings too: a program that finished and one that ran out of frames
+    // have both left the machine somewhere worth looking at.
+    this.#host.moved();
     if (line !== null) {
       this.#line = line;
       this.#event('stopped', {

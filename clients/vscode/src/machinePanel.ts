@@ -49,6 +49,16 @@ export class MachinePanel {
   #operations: Operations | undefined;
   #channel: vscode.OutputChannel;
   #disposed = false;
+  /**
+   * The machine a play channel is open on, or null where none is.
+   *
+   * Held here because a play channel is this panel's: it is opened when a
+   * listing is run and it ends when a debug session asks to mirror the same
+   * machine, which is the toolchain's rule rather than ours. What reads the
+   * machine needs to know which of the two it is looking at, because only one
+   * of them goes on running with nothing having asked it to.
+   */
+  #playing: string | null = null;
 
   private constructor(panel: vscode.WebviewPanel, channel: vscode.OutputChannel) {
     this.#panel = panel;
@@ -103,6 +113,7 @@ export class MachinePanel {
     if (this.#disposed) return;
     this.#disposed = true;
     if (current === this) current = undefined;
+    this.#playing = null;
     const operations = this.#operations;
     this.#operations = undefined;
     await operations?.dispose();
@@ -146,6 +157,9 @@ export class MachinePanel {
    * stops answering, which is when it matters.
    */
   async mirror(address: string, machineName: string): Promise<void> {
+    // Asking to watch a machine ends the playing of it, so what was being
+    // played is no longer being played whatever else this does.
+    this.#playing = null;
     await this.#frame(
       address,
       machineName,
@@ -156,11 +170,36 @@ export class MachinePanel {
 
   /** The debug session let the machine go, so there is nothing to show. */
   sessionEnded(machineName: string): void {
+    this.#playing = null;
     this.#say(
       `The debug session has ended and the ${machineName} has been let go.`,
       'Start another session to stop the listing on a line again, or run it to ' +
         'play the machine and type at it.',
     );
+  }
+
+  /**
+   * The conversation this window's machine is held on, or undefined where none
+   * has been started.
+   *
+   * Separate from `connection`, which starts one: something that only reads the
+   * machine must never be what brings a toolchain process into being. A window
+   * that has run nothing has nothing to read.
+   */
+  held(): Operations | undefined {
+    return this.#operations;
+  }
+
+  /**
+   * The machine this panel is playing, or null where it is playing none.
+   *
+   * Null covers a panel showing nothing, one mirroring a debugged machine, and
+   * one whose machine has gone. Only a machine that is being played advances
+   * with nothing having asked it to, so only that one is worth reading on a
+   * timer.
+   */
+  playing(): string | null {
+    return this.#playing;
   }
 
   /** Reveal this panel without disturbing what it is showing. */
@@ -187,6 +226,7 @@ export class MachinePanel {
     // runs a listing never pays for a second toolchain process. Kept afterwards,
     // because letting it go would let the machine go with it.
     const operations = this.connection(launch);
+    this.#playing = null;
     // A connection holds one machine, so the one a previous run left is let go
     // before this run asks for another. A no-op on the first run.
     await operations.ask('release');
@@ -230,6 +270,7 @@ export class MachinePanel {
       this.#say(`The ${report.machine.name} cannot be played.`, played.problem);
       return;
     }
+    this.#playing = report.machine.name;
     await this.#frame(played.address, report.machine.name);
   }
 

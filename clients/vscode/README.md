@@ -74,6 +74,30 @@ type a schedule in the **Debug Console**: `PRESS ENTER`, or
 means in a written schedule. `basically info <machine>` lists the key names a
 machine answers to.
 
+## Watching what a program holds
+
+**Basically variables**, in the panel beside the terminal, shows what the
+machine this window is holding holds — a row per variable, its value beside its
+name, what kind it is in the tooltip. Drag it to the sidebar if you would rather
+have it there.
+
+It works both ways a listing is started. **While you're playing a listing** the
+machine goes on running, so the table follows it: a program that counts is seen
+to count. Because the machine is moving between readings, two readings may
+differ — that's the program running, not a fault. **While you're debugging one**
+it shows what the stopped program holds, read again each time the program stops
+somewhere new, and it stays where you put it when the session ends.
+
+Every value is the server's account of the machine, not something the client
+works out. A machine that can't report what its variables hold says so rather
+than appearing to hold none, and nothing here sets a variable or watches an
+expression: the toolchain reports what a program holds and offers no way to
+evaluate or assign anything.
+
+Reading a machine that's being played needs a toolchain that answers it. Point
+`basically.server.path` at an older copy and the view says so, and the values
+are still there each time a debugged program stops.
+
 **Running and debugging are the two ways to start a listing, and they're
 different.** Running gives you a machine on its own clock that you type at;
 debugging gives you one that advances only as far as the editor asked. Starting
