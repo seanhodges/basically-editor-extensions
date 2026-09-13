@@ -6,9 +6,9 @@
  * Everything the user sees comes from the server: problems, completion, hover,
  * jump-to-definition, the outline, a variable's uses, and colour. This file
  * starts it on the first listing opened, keeps `basically.machine` flowing to
- * it, offers the three commands the protocol has no place for, says which
- * machine the listing being edited is checked against, and tells the editor
- * where the toolchain its own agent can use is.
+ * it, offers the commands the protocol has no place for, says which machine the
+ * listing being edited is checked against, and tells the editor where the
+ * toolchain its own agent can use is.
  */
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -29,6 +29,7 @@ import {
 import { closeMachinePanel, MachinePanel } from './machinePanel';
 import { MachineStatusItem } from './machineStatusItem';
 import { registerMcpServer } from './mcpServer';
+import { ProgramTransfer } from './programTransferCommands';
 import { VariableWatchView } from './variableWatchView';
 import { argsFor, envFor, launchFor, locateServer, type ServerLaunch } from './server';
 
@@ -236,6 +237,10 @@ export async function activate(
       await activateClient(context);
     }),
   );
+  // Independent of the language server as well, and of the panel: building a
+  // program needs no machine and reads none of its firmware, so an export is
+  // owed nothing that running one is.
+  ProgramTransfer.register(context, outputChannel());
   // Registered before the server is started, and independent of whether it
   // starts: the listing whose machine could not be settled and the client that
   // never loaded look alike, and this is what tells them apart.
