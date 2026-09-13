@@ -204,25 +204,25 @@
         "basically.machine": {
           "type": "string",
           "default": "",
-          "markdownDescription": "The machine every listing is checked against, by its id or its full name (`zx81`, `BBC Micro`). A listing that declares its own machine with a `#MACHINE` line ignores this, so one project can hold programs for several machines. Left empty, the machine is worked out from the listing where that is possible, and reported as a problem where it is not. Run **Basically: Choose the machine to check against** to pick from the machines this server has.",
+          "markdownDescription": "The default target machine. To be used unless `#MACHINE` is declared in the listing.",
           "scope": "resource"
         },
         "basically.server.path": {
           "type": "string",
           "default": "",
-          "markdownDescription": "Path to the `basically` command, or to a checkout's `cli.mjs`, to serve from instead of the copy bundled with this extension. For working on the toolchain itself.",
+          "markdownDescription": "Path to the `basically` command, if empty the the toolchain bundled with this extension is used.",
           "scope": "machine-overridable"
         },
         "basically.server.nodePath": {
           "type": "string",
           "default": "",
-          "markdownDescription": "Path to the Node.js used to run the bundled server. Left empty, `node` from your PATH is used where it is new enough, and the editor's own Node otherwise.",
+          "markdownDescription": "Path to the Node.js used to run the bundled server. If left empty the editor's own Node.js is used.",
           "scope": "machine-overridable"
         },
         "basically.mcp.enabled": {
           "type": "boolean",
           "default": true,
-          "markdownDescription": "Offer the Basically toolchain to this editor's chat agent, so it can lint, build and run BASIC programs and read the screens they draw. Turned off, the toolchain is no longer offered and your listings go on being served as before. The agent is given the same server that serves the language, so `basically.server.path` points both at once.",
+          "markdownDescription": "Offer the Basically toolchain to Copilot, so it can lint, build and run BASIC programs and read what's displayed.",
           "scope": "window"
         },
         "basically.trace.server": {

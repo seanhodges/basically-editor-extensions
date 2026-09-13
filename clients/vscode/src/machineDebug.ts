@@ -202,18 +202,16 @@ export function refusalFor(
   switch (plan.kind) {
     case 'no-machine':
       return {
-        heading: 'This listing does not say which machine it is for.',
+        heading: 'This listing doesnt say which machine it is for.',
         remedy:
-          'Add a "#MACHINE" line at the top of it, or run "Basically: Choose ' +
-          'the machine to check against" to set basically.machine.',
+          'Add a "#MACHINE" line at the top of it, or run "Basically: Select target machine" to set basically.machine.',
         offerRun: false,
       };
     case 'unknown-machine':
       return {
         heading: `This server has no machine called "${plan.wanted}".`,
         remedy:
-          'Run "Basically: Choose the machine to check against" to pick from ' +
-          'the machines it has.',
+          'Run "Basically: Select target machine".',
         offerRun: false,
       };
     case 'needs-roms':
@@ -223,7 +221,7 @@ export function refusalFor(
           'It needs ROM images that are not held here. Run this listing to be ' +
           'asked about obtaining them, or install the toolchain with ' +
           '"npm install -g @ba.sical.ly/cli" and set basically.server.path to ' +
-          'a copy holding images of your own.',
+          'a copy images of your own.',
         offerRun: false,
       };
     case 'cannot-step':
@@ -232,8 +230,7 @@ export function refusalFor(
           `The ${plan.machine.name} cannot say which BASIC line it is ` +
           'executing, so a program on it cannot be stopped on one.',
         remedy:
-          `You can still run the listing and play the ${plan.machine.name}, ` +
-          'look at its screen and type at it.',
+          `You can still run the listing and play the ${plan.machine.name}.`,
         offerRun: true,
       };
   }
@@ -283,11 +280,9 @@ type Handler = (args: Record<string, unknown>) => Promise<unknown> | unknown;
  */
 function keysHint(machine: string): string {
   return (
-    'Send it keys from this console: type a schedule such as `PRESS ENTER` or ' +
-    '`TYPE "FRED"; PRESS ENTER`. The screen beside you mirrors the machine and ' +
-    'does not take typing, so that the program only ever advances when ' +
-    `something asked it to. "basically info ${machine}" lists the key names ` +
-    'this machine answers to.'
+    'Send keys from this console: type a schedule such as `PRESS ENTER` or ' +
+    '`TYPE "FRED"; PRESS ENTER`. "basically info ${machine}" lists the key names `' +
+    'the emulator answers to.'
   );
 }
 
@@ -416,7 +411,7 @@ export class MachineDebugSession {
     } catch (error) {
       this.#fail(
         error instanceof OperationFailed
-          ? `The toolchain could not debug this listing. ${error.message}`
+          ? `The toolchain couldnt debug this listing. ${error.message}`
           : `Could not talk to the toolchain. ${describe(error)}`,
       );
       return;
@@ -460,8 +455,7 @@ export class MachineDebugSession {
     if (viewed.endedPlay) {
       this.#say(
         `You were playing the ${this.#host.machine.name}; that has ended, ` +
-          'because a machine is either played or debugged and not both. The ' +
-          'screen now mirrors it and does not take typing.',
+          'because a machine is either played or debugged and not both.',
       );
     }
     await this.#host.mirror(viewed.address);
@@ -498,7 +492,7 @@ export class MachineDebugSession {
     // program sitting at an INPUT looks exactly like one looping forever — and
     // the one thing the user needs in either case is how to type at it.
     this.#say(
-      'The program is still going: it reached neither a stop nor its end. ' +
+      'The program is still running. ' +
         keysHint(this.#host.machine.id),
     );
   }
@@ -532,7 +526,7 @@ export class MachineDebugSession {
         line: entry.row,
         message:
           entry.line === null
-            ? 'This row carries no BASIC line number, so the program cannot ' +
+            ? 'This line is missing a line number, so the program cant ' +
               'stop before it.'
             : undefined,
       })),
@@ -565,7 +559,7 @@ export class MachineDebugSession {
   async #variables(): Promise<unknown> {
     const report = await this.#host.operations.variables();
     if (report.variables === null) {
-      const cannot = `The ${this.#host.machine.name} cannot report what its variables hold.`;
+      const cannot = `The ${this.#host.machine.name} cant report the variables.`;
       if (!this.#saidNoVariables) {
         this.#saidNoVariables = true;
         this.#say(cannot);
@@ -609,8 +603,7 @@ export class MachineDebugSession {
     }
     if (!report.canStep) {
       this.#fail(
-        `The ${this.#host.machine.name} cannot be stepped, so this session ` +
-          'can go no further.',
+        `The ${this.#host.machine.name} cant be stepped.`,
       );
       return;
     }
@@ -640,8 +633,7 @@ export class MachineDebugSession {
       this.#line = report.line;
       if (report.line === null) {
         this.#say(
-          'Which line the program is on cannot be told right now, so there is ' +
-            'no line to show it stopped before.',
+          'The current line cant be reported right now.',
         );
       }
       this.#event('stopped', {

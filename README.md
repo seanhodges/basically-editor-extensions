@@ -256,7 +256,7 @@ can help with anything. It takes the first of these that answers:
 1. **The listing declares it** — a `#MACHINE zx81` line at the top always wins,
    so one repository can hold programs for several machines.
 2. **You configured one** — `basically.machine` in VS Code (the command
-   **Basically: Choose the machine to check against** lists what this server
+   **Basically: Select target machine** lists what this server
    has), `g:basically_machine` in Vim.
 3. **It can be worked out** from the listing's own text — and where several
    machines would read it equally, the server says so rather than guessing.
