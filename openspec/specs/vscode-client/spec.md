@@ -77,8 +77,8 @@ such a variable takes the whole of its name.
 The extension SHALL offer, as commands the user can find by name, the things the
 protocol itself has no place for: choosing the machine listings are checked
 against, starting the language server again, running the listing being edited so
-that its machine can be played, and exporting the listing being edited as a file
-its machine loads.
+that its machine can be played, exporting the listing being edited as a file its
+machine loads, and reading a machine's own file back into a listing.
 
 Choosing a machine SHALL be a choice among the machines the running server has,
 and SHALL be remembered against the project the user is working in where there
@@ -90,10 +90,12 @@ settings as they now stand, without the user restarting their editor. It SHALL
 NOT be required in order to run a listing, and SHALL NOT disturb a machine
 already being played.
 
-Running the listing SHALL open the panel `machine-panel` describes. Exporting it
-SHALL do what `program-transfer` describes. Each SHALL be offered wherever a
-listing is being edited, and where that listing cannot be run or exported the
-command SHALL say why rather than being absent without explanation.
+Running the listing SHALL open the panel `machine-panel` describes. Exporting it,
+and reading a machine's file back into one, SHALL do what `program-transfer`
+describes. Running and exporting SHALL be offered wherever a listing is being
+edited, and where that listing cannot be run or exported the command SHALL say
+why rather than being absent without explanation. Reading a machine's file SHALL
+be offered whether or not a listing is open, since it needs none.
 
 A command about the listing being edited MAY also be offered as a control on
 that listing, and where it is, the two SHALL be the same command described the
@@ -121,6 +123,12 @@ same way — offering one is never a reason to stop offering the other by name.
 - **WHEN** the user looks for the extension's commands by name while editing a
   listing
 - **THEN** exporting the listing is among them
+
+#### Scenario: Finding the command to read a machine's file
+
+- **WHEN** the user looks for the extension's commands by name with no listing
+  open
+- **THEN** reading a machine's file is among them
 
 #### Scenario: A command offered both ways
 
