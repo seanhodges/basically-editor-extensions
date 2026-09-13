@@ -49,11 +49,12 @@
 - [x] 5.2 Add a `viewsWelcome` entry for a window holding no machine, saying what
       to do rather than showing an empty table.
 - [x] 5.3 Add the view's activation event.
-- [ ] 5.4 Move `basically.server.version` to the release carrying the server
-      change. NOT DONE: no release carries it yet — it is on a branch in the
-      `basically` repository. The pin stays at 0.1.16, which refuses a read of a
-      played machine, and the view says so. This is the last thing to do before
-      this change ships.
+- [x] 5.4 Move `basically.server.version` to the release carrying the server
+      change. Done: 0.1.17 carries it. Against that pin a played machine answers
+      its variables rather than refusing them, and two readings a moment apart
+      differ, which is the program running between them. The client keeps its
+      sentence for the refusal, because a user can still point
+      `basically.server.path` at an older toolchain.
 
 ## 6. Tests
 
