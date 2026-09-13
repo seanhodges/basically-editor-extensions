@@ -5,8 +5,9 @@
 What a VS Code user gets: their BASIC listings recognised as BASIC, the
 language server's help for as long as they have them open, the things the
 protocol has no place for offered as commands they can find — running the
-listing among them — settings for the machine and for the server, and colour for
-every kind of run the server reports
+listing among them — settings for the machine and for the server, which machine
+the listing they are editing is checked against, the same toolchain offered to
+their editor's own agent, and colour for every kind of run the server reports
 — including the two kinds nothing outside a BASIC listing has.
 
 ## Requirements
@@ -20,6 +21,11 @@ served whether or not it has been saved yet.
 Opening such a listing SHALL be enough to bring the language server up; the user
 SHALL NOT have to run anything first. The extension SHALL go on serving a
 listing that has never been saved as well as one on disk.
+
+Where no listing is open, the extension SHALL NOT start a language server. The
+extension may be loaded for reasons that have nothing to do with a listing —
+offering the toolchain to the editor's agent is one — and a user who has opened
+no BASIC should not be given a server they have no use for.
 
 Everything the user is offered about a listing — the problems, the completions,
 the explanations, jumping to a called line, the outline, a variable's uses and
@@ -40,6 +46,12 @@ server it started rather than leave it running.
 - **WHEN** the user types a listing into a new unsaved document and declares
   its machine
 - **THEN** it is served the same as one on disk
+
+#### Scenario: A window with no listing in it
+
+- **WHEN** the extension is loaded in a window where no BASIC listing is open
+- **THEN** no language server is started, and one starts as soon as a listing is
+  opened
 
 ### Requirement: A BASIC listing edits as BASIC
 
@@ -108,8 +120,9 @@ explanation.
 ### Requirement: The user can say which server to use and watch it work
 
 The extension SHALL offer settings for the machine to check against, for which
-server to use, for the runtime that runs it, and for whether the conversation
-with the server is recorded for the user to read.
+server to use, for the runtime that runs it, for whether the toolchain is offered
+to the editor's own agent, and for whether the conversation with the server is
+recorded for the user to read.
 
 A setting that is about the user's machine rather than about their work SHALL be
 settable per machine, so that a path that is right on one computer is not
@@ -160,3 +173,121 @@ every other way.
 
 - **WHEN** the client is serving from a server that offers no colour
 - **THEN** problems, completion, explanations and the rest are unaffected
+
+### Requirement: The user is told which machine their listing is checked against
+
+While the user is editing a BASIC listing, the extension SHALL show which
+machine that listing is being checked against, without the user having to open
+or run anything, and SHALL keep it current as they move between listings and as
+the answer changes.
+
+Where no machine could be settled, the extension SHALL say so as plainly as it
+would name one. The server colours nothing in a listing it cannot bind to a
+machine, which is correct and is also indistinguishable, to the user, from a
+client that has stopped working; the point of this requirement is that the two
+can be told apart at a glance.
+
+The extension SHALL distinguish a listing with no machine settled from one whose
+machine was named but this server does not have, and from one whose machine this
+server has but cannot run as it stands. The third of these SHALL NOT be shown as
+an absence: such a listing is being checked against that machine, and only
+running it is affected.
+
+What is shown SHALL be the server's answer, arrived at by the precedence stated
+for every client. The extension SHALL NOT read a listing's declaration itself,
+SHALL NOT infer a machine from a listing's text, and SHALL show nothing rather
+than a machine it decided on its own.
+
+The extension SHALL NOT restate what the user should set. That sentence is
+already reported on the listing, and SHALL remain the one place it is said.
+Choosing the machine SHALL be reachable from what is shown.
+
+Keeping this current SHALL cost the user nothing they would notice. The
+extension SHALL NOT ask again for a listing whose answer it already has, and
+SHALL NOT ask as the user types. Where the answer is not yet known the extension
+SHALL say that it is being worked out rather than showing the machine of a
+listing the user is no longer editing, and where it cannot be got at all the
+extension SHALL show nothing rather than reporting a fault it is not about.
+
+Nothing SHALL be shown for a file that is not a BASIC listing.
+
+#### Scenario: A listing that declares its machine
+
+- **WHEN** the user is editing a listing that declares which machine it is for
+- **THEN** that machine is named to them while they edit it
+
+#### Scenario: A listing with no machine settled
+
+- **WHEN** the user is editing a listing that declares no machine, having named
+  none, whose text does not distinguish one machine from another
+- **THEN** they are told that no machine is settled, and choosing one is
+  reachable from there
+
+#### Scenario: Telling correct silence from a broken client
+
+- **WHEN** a listing is shown with none of the server's colour in it
+- **THEN** the user can see whether a machine was settled, without opening or
+  running anything
+
+#### Scenario: A machine this server cannot run
+
+- **WHEN** the user is editing a listing whose machine this server has but
+  cannot run as it stands
+- **THEN** that machine is named as the one it is checked against, and not
+  reported as no machine
+
+#### Scenario: Moving between two open listings
+
+- **WHEN** the user moves back to a listing whose machine has already been
+  established, its text unchanged
+- **THEN** what is shown is that machine, and nothing is asked of the server
+  again
+
+#### Scenario: Editing a file that is not a listing
+
+- **WHEN** the user is editing something that is not a BASIC listing
+- **THEN** nothing about machines is shown to them
+
+### Requirement: The toolchain is offered to the editor's own agent
+
+The extension SHALL offer the toolchain it starts to the editor's own agent, so
+that a user who has installed the extension can have their agent work on BASIC —
+running a listing, reading the screen it draws, pressing keys at it, and the rest
+of what the toolchain does — without naming a command or a path themselves.
+
+What the agent is offered SHALL be the toolchain's, not the extension's: the
+extension SHALL say where the server is and leave the editor to start it, stop it
+and ask it what it can do. The extension SHALL NOT hold that conversation itself,
+and SHALL NOT describe, add to or leave out any part of what the toolchain offers
+an agent.
+
+The user SHALL be able to say that the toolchain is not to be offered, and SHALL
+be able to change their mind without restarting their editor. Where a setting
+that bears on which server is offered changes, what the agent is offered SHALL
+change with it.
+
+Where the machines an agent could run need images the user has not yet agreed to
+obtain, the extension SHALL ask before the server is started, on the same terms
+as it asks before running a listing. The toolchain cannot ask for itself, because
+an editor starting a server is not someone it can put a question to. Declining
+SHALL NOT stop the toolchain being offered: what needs no images goes on working,
+and a machine that needs them is refused by the server in its own words.
+
+#### Scenario: An agent that has never been configured
+
+- **WHEN** the user has the extension installed and asks their editor's agent to
+  work on a listing, having configured nothing
+- **THEN** the agent has the toolchain to work with
+
+#### Scenario: A user who does not want the toolchain offered
+
+- **WHEN** the user says the toolchain is not to be offered to their agent
+- **THEN** it is no longer offered, without their editor being restarted, and
+  their listings go on being served as before
+
+#### Scenario: An agent asked to run a machine whose images are not held
+
+- **WHEN** the toolchain is about to be offered and the user has not agreed to
+  obtain the images the machines need
+- **THEN** they are asked once, on the same terms as running a listing asks, and
+  declining leaves the toolchain offered rather than withheld

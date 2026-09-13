@@ -75,7 +75,11 @@ server, so building and fetching come first.
 - [ ] 6.6 Confirm by hand, in the editor, what no suite can: the item appears for
       a listing and not for another file, names the machine a declaring listing
       is checked against, says as plainly when none is settled, and survives
-      moving between two listings.
+      moving between two listings. NOT DONE: this needs a running VS Code, which
+      the environment this was built in has none of. What stands in its place is
+      4.1 to 4.3, which drive the same four answers over no editor and no
+      server, and the manifest cross-check that the command the item points at
+      is one the client contributes.
 - [x] 6.7 No Vim client check applies: nothing here touches `clients/vim/`,
       which has no surface to put this in. Should 1.1 land instead, an LSP host
       that shows such reports gets this for nothing, and that is worth a line in
