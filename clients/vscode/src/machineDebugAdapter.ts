@@ -23,7 +23,7 @@ import {
   type DebugProtocolMessage,
 } from './machineDebug';
 import { launchForDocument, MachinePanel } from './machinePanel';
-import type { ProgramWatcher } from './variableWatchView';
+import type { ProgramWatcher } from './programWatchers';
 import { OperationFailed, planRun } from './operations';
 
 const LANGUAGE_ID = 'basically';

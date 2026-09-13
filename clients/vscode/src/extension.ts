@@ -28,8 +28,10 @@ import {
 } from './machineDebugAdapter';
 import { closeMachinePanel, MachinePanel } from './machinePanel';
 import { MachineStatusItem } from './machineStatusItem';
+import { MemoryMapView } from './memoryMapView';
 import { registerMcpServer } from './mcpServer';
 import { ProgramTransfer } from './programTransferCommands';
+import { tellAll, type MachineWatcher } from './programWatchers';
 import { VariableWatchView } from './variableWatchView';
 import { argsFor, envFor, launchFor, locateServer, type ServerLaunch } from './server';
 
@@ -187,7 +189,7 @@ function describe(error: unknown): string {
  */
 async function runListing(
   context: vscode.ExtensionContext,
-  variables: VariableWatchView,
+  watchers: MachineWatcher,
 ): Promise<void> {
   const editor = vscode.window.activeTextEditor;
   if (!editor || editor.document.languageId !== LANGUAGE_ID) {
@@ -207,8 +209,9 @@ async function runListing(
   const panel = MachinePanel.show(outputChannel());
   await panel.play(editor.document, context.extensionPath);
   // There is a machine now where there may have been none, and it is one that
-  // goes on running - so what shows its variables starts reading it.
-  variables.playing();
+  // goes on running - so what shows what it holds and where in memory it is
+  // working both start looking at it.
+  watchers.playing();
 }
 
 function outputChannel(): vscode.OutputChannel {
@@ -219,15 +222,20 @@ export async function activate(
   context: vscode.ExtensionContext,
 ): Promise<void> {
   // First, because running a listing and debugging one both report where the
-  // machine got to and both need somewhere to report it.
-  const variables = VariableWatchView.register(context);
+  // machine got to and both need somewhere to report it. Both views are told
+  // through one watcher, so neither the run nor a session learns that there is
+  // more than one of them.
+  const watchers = tellAll([
+    VariableWatchView.register(context),
+    MemoryMapView.register(context),
+  ]);
   context.subscriptions.push(
     outputChannel(),
     vscode.commands.registerCommand('basically.selectMachine', () =>
       selectMachine(context),
     ),
     vscode.commands.registerCommand('basically.runListing', () =>
-      runListing(context, variables),
+      runListing(context, watchers),
     ),
     vscode.commands.registerCommand('basically.restartServer', async () => {
       await client?.stop();
@@ -247,7 +255,7 @@ export async function activate(
   MachineStatusItem.register(context, outputChannel());
   // Also independent of it: a debug session and the language server are two
   // conversations, and restarting one leaves the other alone.
-  registerMachineDebug(context, outputChannel(), variables);
+  registerMachineDebug(context, outputChannel(), watchers);
   // And independent again, because the editor may load this extension for the
   // agent alone, in a window holding no listing at all.
   registerMcpServer(context, outputChannel());

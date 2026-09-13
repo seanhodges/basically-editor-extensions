@@ -48,7 +48,9 @@ this.
 The VS Code client does two more things with the same toolchain, over the
 toolchain's operations conversation rather than over LSP: it runs a listing and
 plays its machine in a panel, and it debugs one against the editor's own
-gutter, stopped line, variables pane and step controls.
+gutter, stopped line, variables pane and step controls. Views of its own show
+what a program holds and where in memory it is living, either way it was
+started.
 
 The two are different and the client says which you got. **Playing** is a
 machine on its own clock that you type at. **Debugging** is a machine that

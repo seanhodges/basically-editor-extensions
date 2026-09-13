@@ -125,6 +125,9 @@ vim -u NONE -c 'set rtp+=clients/vim' -c 'runtime plugin/basically.vim' file.bas
 | `clients/vscode/src/machineDebugAdapter.ts` | The debug type, the configuration filled in for a user who wrote none, and the adapter handed over inline |
 | `clients/vscode/src/variableWatch.ts`   | What the user is told the machine holds, and when it is worth reading again — also free of `vscode` |
 | `clients/vscode/src/variableWatchView.ts` | The view that shows it, and the two things that make it read          |
+| `clients/vscode/src/memoryMap.ts`       | Where the machine's memory is being mapped, and what is said when it is mapped nowhere — also free of `vscode` |
+| `clients/vscode/src/memoryMapView.ts`   | The view that frames that address, and what makes it ask for one      |
+| `clients/vscode/src/programWatchers.ts` | What a run and a session report about the machine, and how more than one view gets told — also free of `vscode` |
 | `clients/vscode/package.json`           | The extension manifest, and the **one place** the server version is pinned        |
 | `clients/vscode/test/handshake.test.mjs`| The client-against-server check, over hand-rolled clients in `lspClient.mjs` and `mcpClient.mjs` |
 | `clients/vscode/test/mcpClient.mjs`     | The agent's protocol, framed by line rather than by length — deliberately no code shared with the LSP one |
@@ -133,6 +136,7 @@ vim -u NONE -c 'set rtp+=clients/vim' -c 'runtime plugin/basically.vim' file.bas
 | `clients/vscode/test/machineDebug.test.mjs` | The other client-against-itself check: which controls a session offers, and what a row means to a machine |
 | `clients/vscode/test/variableWatch.test.mjs` | The third: what the user is shown of what the machine holds, over no server at all |
 | `clients/vscode/test/programTransfer.test.mjs` | The fourth: where an exported file goes, which machine a file that settled none is read as, what is said about either, and the manifest cross-checked against itself |
+| `clients/vscode/test/memoryMap.test.mjs` | The fifth: what the user is shown of where a program is living in memory, the three ways there is no map to show, and the view the manifest contributes |
 | `clients/vim/plugin/basically.vim`      | Registration with whichever LSP host is present                                   |
 | `scripts/fetch-server.mjs`              | Puts the pinned server inside the VS Code client at build time                    |
 | `scripts/vendor-modules.mjs`            | Puts the modules the compiled client loads beside it, at the versions the lockfile resolved |
@@ -150,6 +154,12 @@ vim -u NONE -c 'set rtp+=clients/vim' -c 'runtime plugin/basically.vim' file.bas
   with the client, then `basically` on `PATH`.
 - **Which runtime** runs it: what the user configured, `node` on `PATH`, then
   the editor's own. First new enough wins.
+
+**The panel's address and the map's admit different things**, and each is said
+in the client's own words rather than by reference to the other: whoever holds
+the panel's address can type at the machine, and whoever holds the map's can
+watch its memory and do nothing else — not act on the machine, and not learn
+what any address holds. Neither claim may be carried across to the other.
 
 Serving the language, running a machine and stepping one ask different things of
 a server, and each is narrower than the last: **whether a machine can be run, and

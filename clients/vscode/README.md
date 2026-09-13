@@ -179,6 +179,45 @@ Some machines need nothing: their emulator carries its own images, and they run
 on a bare install. The extension asks the server which are which rather than
 keeping a list, so the answer is always the one that copy can actually honour.
 
+## Watching where in memory a program is living
+
+**Basically memory**, beside the variables view, maps the memory of the machine
+this window is holding: the machine's regions drawn to scale, with the addresses
+its processor is reading and writing lit over them. It shows where a program
+actually lives and works — a screen being filled, an array growing, a routine
+running somewhere it shouldn't be. Dock it in the sidebar if you would rather:
+a memory map is tall and narrow, and that's the shape a side dock gives it.
+
+It works both ways a listing is started. **While you're playing a listing** the
+machine goes on running and the map follows it, so a program that starts working
+somewhere else in memory is seen to, without you asking again. **While you're
+debugging one** it shows what the stepping touched, so a step reads as the
+memory it moved and not only as the line it reached. It stays where you put it
+when the session ends, and it's there for the next one.
+
+The map is a page served at an address on your own computer, and **whoever holds
+that address can watch the machine's memory and can do nothing else** — they
+can't type at the machine, can't run or load anything on it, can't reach any
+other part of the toolchain, and can't learn what any address holds. A map
+reports which addresses were touched and never their contents. That is a
+narrower thing than the panel's address admits, and neither describes the other.
+
+Watching costs the program nothing: the machine runs the same way and everything
+the toolchain measures of it is the same whether or not the map is open. Nothing
+is recorded about a machine nobody is watching, so a map in a background tab
+stops asking.
+
+Not every machine can be mapped, and the two ways it can't are different
+answers. A machine whose memory layout the toolchain doesn't describe has no map,
+and you're told so. A machine that has a layout but can't report which addresses
+it's touching has a map that draws the layout and says it can't report activity
+— rather than leaving you to read a dark map as a program that touched nothing.
+A window that's holding no machine says what to run to get one.
+
+Projecting a map is a thing the toolchain has to be able to do. Point
+`basically.server.path` at a copy older than the one this extension ships and the
+view says that server projects no map, and everything else goes on working.
+
 ## Letting your agent use the toolchain
 
 The toolchain behind this extension can work for the chat agent built into your

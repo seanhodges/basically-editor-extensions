@@ -493,6 +493,51 @@ describe('a machine of the editor’s own', () => {
     );
   });
 
+  it('maps where a played machine is working, or says why it cannot', async () => {
+    // What the memory map view is pointed at. Either answer is accepted while
+    // the pin lags the server change, in the manner of the check for a played
+    // machine's variables: the client has a sentence for every way this can
+    // decline, and what is checked here is that the server that ships gives one
+    // of the answers the client knows what to do with.
+    const machine = machines.find((candidate) => candidate.canRun);
+    await operations.run(machine.id, COUNTING);
+    const played = await operations.play();
+    assert.equal(played.problem, null);
+
+    let mapped;
+    try {
+      mapped = await operations.map();
+    } catch (error) {
+      // A server that has never heard of the operation refuses over its name,
+      // which the client reads as "this server projects no map".
+      assert.match(String(error.message), /no operation called "map"/i);
+      return;
+    }
+
+    if (mapped.address === null) {
+      assert.ok(
+        typeof mapped.problem === 'string' && mapped.problem.length > 0,
+        'no map was opened and nothing was said about why',
+      );
+      return;
+    }
+
+    // An address is only worth having if something is behind it: the view puts
+    // exactly this into a frame and adds nothing of its own.
+    const answered = await fetch(mapped.address);
+    assert.equal(answered.status, 200, 'nothing answers at the mapped address');
+
+    // Asked again while one is open, which is what the view does after the
+    // machine it was watching has gone and another program has been run.
+    const again = await operations.map();
+    assert.equal(again.address, mapped.address);
+    assert.equal(again.already, true);
+
+    // A map is not a display, so what was being played goes on being played:
+    // the client frames both addresses at once and neither ends the other.
+    assert.equal((await fetch(played.address)).status, 200);
+  });
+
   it('lets the machine go when the conversation ends', async () => {
     const machine = machines.find((candidate) => candidate.canRun);
     const held = Operations.start(launch);
