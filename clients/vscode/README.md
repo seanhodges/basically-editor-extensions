@@ -44,6 +44,31 @@ workbench level, and the editor's own defaults, are taken before the panel sees
 them. Rebind what you need for a particular game under **Preferences: Open
 Keyboard Shortcuts**.
 
+## Exporting a listing
+
+**Basically: Export this listing as a file its machine loads** turns what you're
+editing — unsaved changes and all — into a real file for that machine: a tape
+image, a cassette `.wav`, a disc file, whatever formats the machine has. Take it
+to hardware, load it in another emulator, or put it on an SD card.
+
+The formats you're offered are the ones the toolchain has for that machine,
+under its own names, so a machine that gains a format offers it here without
+this extension changing. Pick one, and you're asked where to put the file. Where
+a format produces more than one file — a data file and its header, say — the
+rest are written beside the first under their own names, and you're told every
+file that was written.
+
+A listing with a genuine error isn't exported at all: you're told what stopped
+it rather than finding a file that won't load.
+
+The machine is settled the same way it is everywhere else — the listing's own
+`#MACHINE` line first, then **Basically › Machine**. Building a program reads
+none of the machine's ROMs, so **you can export for a machine this copy can't
+run**: you don't need its images to write a file for it.
+
+Both this and **Run this listing** are on the editor's title bar as well, on any
+BASIC listing.
+
 ## Debugging a listing
 
 Start debugging the way you start debugging anything else — **Run and Debug**,

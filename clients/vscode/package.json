@@ -144,7 +144,14 @@
       {
         "command": "basically.runListing",
         "title": "Run this listing and play its machine",
-        "category": "Basically"
+        "category": "Basically",
+        "icon": "$(play)"
+      },
+      {
+        "command": "basically.exportListing",
+        "title": "Export this listing as a file its machine loads",
+        "category": "Basically",
+        "icon": "$(desktop-download)"
       }
     ],
     "mcpServerDefinitionProviders": [
@@ -158,6 +165,22 @@
         {
           "command": "basically.runListing",
           "when": "editorLangId == basically"
+        },
+        {
+          "command": "basically.exportListing",
+          "when": "editorLangId == basically"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "basically.runListing",
+          "when": "editorLangId == basically",
+          "group": "navigation@1"
+        },
+        {
+          "command": "basically.exportListing",
+          "when": "editorLangId == basically",
+          "group": "navigation@2"
         }
       ]
     },

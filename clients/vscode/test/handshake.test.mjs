@@ -44,6 +44,9 @@ const { Operations, planRun } = await import(
 const { planDebug } = await import(
   pathToFileURL(path.join(clientDir, 'out', 'machineDebug.js')).href
 );
+const { suggestedFileName } = await import(
+  pathToFileURL(path.join(clientDir, 'out', 'programTransfer.js')).href
+);
 
 // Normally the bundled copy. `BASICALLY_SERVER_PATH` points the same
 // conversation at a checkout of the toolchain, which is how a server that is
@@ -333,6 +336,62 @@ describe('a machine of the editor’s own', () => {
     assert.ok(
       'basically.machine' in manifest.contributes.configuration.properties,
       'the extension does not contribute the setting the panel names',
+    );
+  });
+
+  it('builds a listing into a file its machine loads, and hands back the bytes', async () => {
+    // Needs no machine and no images, which is why an export is offered for a
+    // machine this copy cannot run. The format is named rather than inferred
+    // from the file name, so that the one the user picked is the one built.
+    const facts = await operations.info('zx81');
+    assert.ok(
+      facts.buildTargets.length > 0,
+      'the server reports no format the ZX81 can be exported as',
+    );
+    const target = facts.buildTargets[0];
+
+    const outcome = await operations.build(
+      'zx81',
+      `#MACHINE zx81\n${printing('EXPORTED')}`,
+      suggestedFileName('breakout.bas', target),
+      target.id,
+    );
+    assert.equal(outcome.machine.id, 'zx81');
+    assert.notEqual(
+      outcome.target,
+      null,
+      'the listing the test builds is not one this machine accepts',
+    );
+    assert.equal(outcome.target.id, target.id, 'a format other than the one asked for');
+    assert.ok(outcome.files.length > 0, 'a build that produced no file at all');
+    for (const file of outcome.files) {
+      // What the client writes is the decoded bytes and what it reports is the
+      // stated size; the two parting company would have it report a size no
+      // file on disk has.
+      assert.equal(
+        Buffer.from(file.base64, 'base64').length,
+        file.size,
+        `${file.fileName} says it is ${file.size} bytes and is not`,
+      );
+    }
+  });
+
+  it('reports a problem that stops a build rather than refusing the request', async () => {
+    // The client tells a fatal problem from a written file by reading the
+    // outcome, so a refusal here would reach the user as a toolchain fault
+    // rather than as the problem in their listing that it is.
+    const facts = await operations.info('zx81');
+    const outcome = await operations.build(
+      'zx81',
+      '#MACHINE zx81\n10 PRIMT "HI"\n',
+      'broken.p',
+      facts.buildTargets[0].id,
+    );
+    assert.equal(outcome.target, null, 'a listing with a fatal problem was built anyway');
+    assert.deepEqual(outcome.files, []);
+    assert.ok(
+      outcome.errors.some((problem) => problem.fatal !== false),
+      'nothing was built and nothing was said to be wrong',
     );
   });
 

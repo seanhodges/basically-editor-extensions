@@ -50,6 +50,31 @@ export interface RunReport {
   errors: Problem[];
 }
 
+/** One file a build produced, ready to be written wherever the caller says. */
+export interface BuiltFile {
+  /** The name the format gave it, e.g. "program.tap". */
+  fileName: string;
+  /** The bytes, base64-encoded. */
+  base64: string;
+  /** How many bytes those are, so a reader need not decode to say. */
+  size: number;
+}
+
+/**
+ * What `build` answers: what it built to, and the files it produced.
+ *
+ * A fatal problem in the listing is reported as `target: null` and no files
+ * rather than as a refusal, so the problems that stopped it come back in the
+ * same shape as the problems that did not.
+ */
+export interface BuildOutcome {
+  machine: { id: string; name: string };
+  errors: Problem[];
+  /** The format built to, or null where a fatal problem stopped the build. */
+  target: { id: string; label: string; fileExtension?: string } | null;
+  files: BuiltFile[];
+}
+
 /** What `play` answers: an address a web view can be pointed at. */
 export interface PlayReport {
   address: string;
@@ -72,6 +97,15 @@ export interface ViewReport {
   problem: string | null;
 }
 
+/** One format a machine's programs can be built into, as the server names it. */
+export interface BuildTarget {
+  id: string;
+  /** What the server calls this format; shown to the user as given. */
+  label: string;
+  /** Extension without the dot, absent for a format that writes no file. */
+  fileExtension?: string;
+}
+
 /** What `info` answers about one machine. Only what the client asks is named. */
 export interface MachineFacts {
   id: string;
@@ -80,6 +114,8 @@ export interface MachineFacts {
   canRun: boolean;
   /** Whether it can be stopped a BASIC line at a time. */
   canStep: boolean;
+  /** The formats this machine's programs can be built into. */
+  buildTargets: BuildTarget[];
 }
 
 /** How a step or a continue finished. */
@@ -413,6 +449,32 @@ export class Operations {
   /** What this server says about one machine, including whether it steps. */
   info(machine: string): Promise<MachineFacts> {
     return this.call<MachineFacts>('info', { machine });
+  }
+
+  /**
+   * Build a listing into the file its machine loads, without writing anything.
+   *
+   * The machine and the format are both named rather than left to be worked
+   * out, because the toolchain would otherwise infer the format from the
+   * extension of `fileName` — and a user who renamed the file in the save
+   * dialog would get a format other than the one they picked.
+   *
+   * `fileName` is the name the first file is to be written under and not a
+   * path: the toolchain writes nothing, and it is also what the machine stores
+   * the program under.
+   */
+  build(
+    machine: string,
+    source: string,
+    fileName: string,
+    target: string,
+  ): Promise<BuildOutcome> {
+    return this.call<BuildOutcome>('build', {
+      machine,
+      source,
+      fileName,
+      target,
+    });
   }
 
   /** Replace the BASIC lines the held program is to stop before. */
