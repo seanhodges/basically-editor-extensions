@@ -115,8 +115,8 @@ vim -u NONE -c 'set rtp+=clients/vim' -c 'runtime plugin/basically.vim' file.bas
 | `clients/vscode/src/machineStatus.ts`   | What the user is told about the machine in force, and when it is worth asking again — also free of `vscode` |
 | `clients/vscode/src/machineStatusItem.ts` | The status bar item that says it, and the conversation it asks through          |
 | `clients/vscode/src/machinePanel.ts`    | The panel, and the frame pointed at the address the toolchain gives back        |
-| `clients/vscode/src/programTransfer.ts` | Which machine a listing is exported for, where each file goes and what the user is told — also free of `vscode` |
-| `clients/vscode/src/programTransferCommands.ts` | The export command: the dialogs, a conversation holding no machine, and the only place this client writes a file |
+| `clients/vscode/src/programTransfer.ts` | Which machine a listing is exported for and which a file is read as, where each file goes and what the user is told — also free of `vscode` |
+| `clients/vscode/src/programTransferCommands.ts` | The export and import commands: the dialogs, a conversation holding no machine, and the only place this client writes a file |
 | `clients/vscode/src/roms.ts`            | Asking the toolchain what images are held, and recording the user's agreement   |
 | `clients/vscode/src/romConsent.ts`      | The question the user is actually asked about those images, for whichever caller needs it |
 | `clients/vscode/src/mcpServer.ts`       | Where the toolchain is, told to the editor so its own agent can be given it     |
@@ -132,7 +132,7 @@ vim -u NONE -c 'set rtp+=clients/vim' -c 'runtime plugin/basically.vim' file.bas
 | `clients/vscode/test/machineStatus.test.mjs` | The client-against-itself check: what the user is shown for each answer, over no server at all |
 | `clients/vscode/test/machineDebug.test.mjs` | The other client-against-itself check: which controls a session offers, and what a row means to a machine |
 | `clients/vscode/test/variableWatch.test.mjs` | The third: what the user is shown of what the machine holds, over no server at all |
-| `clients/vscode/test/programTransfer.test.mjs` | The fourth: where an exported file goes and what is said about it, and the manifest cross-checked against itself |
+| `clients/vscode/test/programTransfer.test.mjs` | The fourth: where an exported file goes, which machine a file that settled none is read as, what is said about either, and the manifest cross-checked against itself |
 | `clients/vim/plugin/basically.vim`      | Registration with whichever LSP host is present                                   |
 | `scripts/fetch-server.mjs`              | Puts the pinned server inside the VS Code client at build time                    |
 | `scripts/vendor-modules.mjs`            | Puts the modules the compiled client loads beside it, at the versions the lockfile resolved |
@@ -143,7 +143,9 @@ vim -u NONE -c 'set rtp+=clients/vim' -c 'runtime plugin/basically.vim' file.bas
 
 - **Which machine** a listing is for: its own `#MACHINE` declaration, then what
   the user configured, then what it can be inferred to be — declining to guess
-  where several machines read it equally.
+  where several machines read it equally. A machine's own file reverses it: the
+  file's format settles which machine it is read as, and the user is asked where
+  the format belongs to more than one machine or to none.
 - **Which server** to start: what the user configured, the copy that shipped
   with the client, then `basically` on `PATH`.
 - **Which runtime** runs it: what the user configured, `node` on `PATH`, then

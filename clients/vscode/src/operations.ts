@@ -75,6 +75,53 @@ export interface BuildOutcome {
   files: BuiltFile[];
 }
 
+/** One block of bytes a file held beside its BASIC, as the toolchain sent it. */
+export interface ConvertedBlock {
+  id: string;
+  /** The name the machine's reader gave it; safe as a file name's stem. */
+  name: string;
+  kind: string;
+  address: number;
+  base64: string;
+}
+
+/**
+ * What `convert` answers: the BASIC a machine's own file held, the machine it
+ * was read as, and what the conversion could not carry into text.
+ */
+export interface ConvertOutcome {
+  machine: { id: string; name: string };
+  source: string;
+  /** What the machine's own reader raised, in its words. */
+  warnings: string[];
+  /** The parts of the file that are not BASIC; absent where it held none. */
+  blocks?: ConvertedBlock[];
+  /** Further files the format held, which it names but does not hand over. */
+  tapeFiles?: { name: string; kind: string }[];
+  /** The line the program starts itself from, where the format records one. */
+  autoStart?: number | null;
+  /**
+   * Whether `source` opens with the declaration that was asked for.
+   *
+   * The client's own note and not the server's answer: a server that has never
+   * heard of the declaration refuses the request for it rather than answering
+   * without it, so there is nothing in the outcome to read it from.
+   */
+  declared: boolean;
+}
+
+/**
+ * What a conversion came to: the program, or the question of which machine.
+ *
+ * The second is a refusal read as an answer. Which machine a file belongs to is
+ * the file's own format to settle, and where the format settles nothing there
+ * is a question only the user can answer.
+ */
+export type ConvertAnswer =
+  | { kind: 'converted'; outcome: ConvertOutcome }
+  /** Empty where no machine claimed the format, rather than more than one. */
+  | { kind: 'which-machine'; candidates: string[] };
+
 /** What `play` answers: an address a web view can be pointed at. */
 export interface PlayReport {
   address: string;
@@ -116,6 +163,8 @@ export interface MachineFacts {
   canStep: boolean;
   /** The formats this machine's programs can be built into. */
   buildTargets: BuildTarget[];
+  /** The formats this machine's programs can be read back from. */
+  binaryImports: { extension: string; label: string }[];
 }
 
 /** How a step or a continue finished. */
@@ -211,6 +260,24 @@ export function planRun(
   return machine.canRun
     ? { kind: 'run', machine }
     : { kind: 'needs-roms', machine };
+}
+
+/**
+ * The machines a refusal named as having claimed a file's format, or null where
+ * the refusal is about something else.
+ *
+ * Two of `convert`'s refusals are questions rather than faults: a format more
+ * than one machine claims, which names them, and a format none claims, which
+ * names none. Both mean the file did not settle its own machine and the user
+ * has to. Read out of the wording the way `declaredMachine` reads the refusal
+ * that means "this listing declares none".
+ */
+function candidatesIn(message: string): string[] | null {
+  const named = /matches "[^"]*": (.+?) \(-m /.exec(message);
+  if (named) {
+    return named[1].split(', ').filter((candidate) => candidate !== '');
+  }
+  return /wants a machine/i.test(message) ? [] : null;
 }
 
 /** What the toolchain refused to do, and under which of its own headings. */
@@ -475,6 +542,54 @@ export class Operations {
       fileName,
       target,
     });
+  }
+
+  /**
+   * Read a machine's own file back into the BASIC it holds.
+   *
+   * No machine is named unless the caller has one, because here the file's own
+   * format settles it — the reverse of every other question about a machine in
+   * this client, and the server's own order, which naming a machine would
+   * override. Where the format settles nothing the server refuses and names
+   * what could have claimed it, which comes back as a question to put to the
+   * user rather than as a fault.
+   *
+   * `fileName` is what the format is inferred from; the toolchain reads no file
+   * and writes none, and the bytes travel with the request.
+   */
+  async convert(
+    base64: string,
+    fileName: string,
+    machine?: string,
+    declareMachine = true,
+  ): Promise<ConvertAnswer> {
+    try {
+      const outcome = await this.call<Omit<ConvertOutcome, 'declared'>>(
+        'convert',
+        {
+          base64,
+          fileName,
+          ...(machine === undefined ? {} : { machine }),
+          ...(declareMachine ? { declareMachine: true } : {}),
+        },
+      );
+      return {
+        kind: 'converted',
+        outcome: { ...outcome, declared: declareMachine },
+      };
+    } catch (error) {
+      if (!(error instanceof OperationFailed)) throw error;
+      const candidates = candidatesIn(error.message);
+      if (candidates) return { kind: 'which-machine', candidates };
+      // A toolchain that has never heard of the declaration refuses the whole
+      // request over it, so the same file is read again without one: a client
+      // never refuses over a version number, and an option is no different
+      // from a runtime in that. What is lost is said in words by the caller.
+      if (declareMachine && /has no property declareMachine/.test(error.message)) {
+        return this.convert(base64, fileName, machine, false);
+      }
+      throw error;
+    }
   }
 
   /** Replace the BASIC lines the held program is to stop before. */

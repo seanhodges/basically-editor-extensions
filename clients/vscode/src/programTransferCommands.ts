@@ -1,17 +1,19 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 /**
- * Exporting the listing being edited as a file its machine loads.
+ * Moving a program between the editor and the machine's own file: the listing
+ * being edited written out as a file its machine loads, and a machine's file
+ * read back into a listing.
  *
  * The editor's half: the dialogs, the conversation, and the writing. What is to
  * be done and what the user is told is `programTransfer.ts`, which knows no
  * editor; this asks the questions and puts the bytes where the answers say.
  *
- * It is the first thing in this client to write a file. Everything else sent to
+ * It is the only thing in this client to write a file. Everything else sent to
  * the toolchain has been the text of a buffer and everything received has been
- * something to say or an address to point a frame at, so the boundary is new:
+ * something to say or an address to point a frame at, so the boundary is here:
  * the toolchain writes nothing and hands back bytes, and where they go is
- * settled here, from what the user named in the editor's own save dialog.
+ * settled from what the user named in the editor's own dialogs.
  */
 import path from 'node:path';
 
@@ -22,14 +24,20 @@ import {
   OperationFailed,
   type BuildOutcome,
   type BuildTarget,
+  type ConvertAnswer,
+  type Machine,
 } from './operations';
 import {
+  blocksWritten,
+  importReportFor,
+  machinesToChooseFrom,
   planExport,
   refusalFor,
   reportFor,
   suggestedFileName,
   type ExportPlan,
   type ExportRefusal,
+  type ImportReport,
 } from './programTransfer';
 import { launchFor, locateServer } from './server';
 
@@ -64,6 +72,9 @@ export class ProgramTransfer {
     context.subscriptions.push(
       vscode.commands.registerCommand('basically.exportListing', () =>
         transfer.exportListing(),
+      ),
+      vscode.commands.registerCommand('basically.importProgram', () =>
+        transfer.importProgram(),
       ),
       { dispose: () => transfer.#drop() },
       vscode.workspace.onDidChangeConfiguration((event) => {
@@ -111,7 +122,7 @@ export class ProgramTransfer {
       // format offers it without this client being changed.
       targets = (await operations.info(plan.machine.id)).buildTargets;
     } catch (error) {
-      this.#failed(error);
+      this.#failed(error, 'export this listing');
       return;
     }
     if (targets.length === 0) {
@@ -140,7 +151,7 @@ export class ProgramTransfer {
         target.id,
       );
     } catch (error) {
-      this.#failed(error);
+      this.#failed(error, 'export this listing');
       return;
     }
 
@@ -182,6 +193,162 @@ export class ProgramTransfer {
     void vscode.window.showInformationMessage(said, ...items).then(reveal);
   }
 
+  /**
+   * Read a machine's own file back into a listing the user can edit.
+   *
+   * Which machine the file is for is the file's own to settle and is left to
+   * the server, which reads the format and refuses — naming what could have
+   * claimed it — where the format settles nothing. Nothing is opened over
+   * anything: the listing arrives untitled, so where a program off somebody
+   * else's tape belongs on this disk stays the user's decision.
+   */
+  async importProgram(): Promise<void> {
+    // No file-type filter: which extensions belong to which machine is a fact
+    // about machines, and a list of them held here would go stale the moment
+    // the toolchain gained a format.
+    const picked = await vscode.window.showOpenDialog({
+      canSelectMany: false,
+      openLabel: 'Read',
+      title: "Read a machine's file into a listing",
+    });
+    const file = picked?.[0];
+    if (!file) return;
+    const fileName = path.basename(file.fsPath);
+
+    let base64: string;
+    try {
+      base64 = Buffer.from(await vscode.workspace.fs.readFile(file)).toString(
+        'base64',
+      );
+    } catch (error) {
+      void vscode.window.showErrorMessage(
+        `Could not read ${fileName}: ${describe(error)}`,
+      );
+      return;
+    }
+
+    const config = vscode.workspace.getConfiguration(CONFIG_SECTION, file);
+    let answer: ConvertAnswer;
+    try {
+      const operations = this.#conversation(config);
+      answer = await operations.convert(base64, fileName);
+      if (answer.kind === 'which-machine') {
+        const { candidates } = answer;
+        const offered = machinesToChooseFrom(
+          await operations.machines(),
+          candidates,
+        );
+        // What each machine reads, asked of the server for the machines it
+        // named: a choice between two machines whose formats share an
+        // extension is a choice about something only if it says what each one
+        // reads. Where it named none, every machine is offered and the file's
+        // format matched none of them, so the lists would say nothing.
+        const formats =
+          candidates.length === 0
+            ? new Map<string, string>()
+            : await formatsRead(operations, offered);
+        const machine = await pickMachine(
+          offered,
+          formats,
+          candidates.length > 0,
+        );
+        if (!machine) return;
+        // The same bytes again with the machine named, which is what overrides
+        // the file's own format — the only thing that does.
+        answer = await operations.convert(base64, fileName, machine.id);
+        if (answer.kind === 'which-machine') {
+          void vscode.window.showWarningMessage(
+            `The toolchain would not read ${fileName} as a ${machine.name} file.`,
+          );
+          return;
+        }
+      }
+    } catch (error) {
+      this.#failed(error, `read ${fileName}`);
+      return;
+    }
+
+    const report = importReportFor(answer.outcome);
+    // Opened before anything is said about it, because the listing is what was
+    // asked for and everything else is about what came with it.
+    const document = await vscode.workspace.openTextDocument({
+      content: answer.outcome.source,
+      // Set rather than inferred: an untitled document has no name to infer a
+      // language from, and a listing not served as one is a listing with no
+      // problems reported against it.
+      language: LANGUAGE_ID,
+    });
+    await vscode.window.showTextDocument(document);
+
+    this.#say(report.message, report.detail);
+    await this.#keepBlocks(report);
+  }
+
+  /**
+   * Offer somewhere to keep what was recovered beside the BASIC.
+   *
+   * Asked only where the file actually held blocks, and declining writes
+   * nothing and is not a failure: the listing is already open, which is what
+   * was asked for.
+   */
+  async #keepBlocks(report: ImportReport): Promise<void> {
+    if (report.blocksAsk === null) return;
+    const KEEP = 'Choose a folder';
+    const answer = await vscode.window.showInformationMessage(
+      report.blocksAsk,
+      KEEP,
+    );
+    if (answer !== KEEP) return;
+    const folder = await vscode.window.showOpenDialog({
+      canSelectFiles: false,
+      canSelectFolders: true,
+      canSelectMany: false,
+      openLabel: 'Keep here',
+      title: 'Where should the recovered bytes be kept?',
+    });
+    const into = folder?.[0];
+    if (!into) return;
+
+    const written: string[] = [];
+    try {
+      for (const block of report.blocks) {
+        const where = vscode.Uri.joinPath(into, block.fileName);
+        await vscode.workspace.fs.writeFile(
+          where,
+          Buffer.from(block.base64, 'base64'),
+        );
+        written.push(where.fsPath);
+      }
+    } catch (error) {
+      void vscode.window.showErrorMessage(
+        `Could not write what was recovered: ${describe(error)}`,
+      );
+      return;
+    }
+    const said = blocksWritten(written);
+    this.#say(said.message, said.detail);
+  }
+
+  /**
+   * Put one outcome to the user, and the whole of it into the channel.
+   *
+   * A notification runs its lines together, so where there is more than one
+   * line the channel is offered, which has them a line each — the rule an
+   * export already follows for the paths it wrote and the problems it found.
+   */
+  #say(message: string, detail: string[]): void {
+    for (const line of [message, ...detail]) this.#channel.appendLine(line);
+    const SHOW = 'Show details';
+    void vscode.window
+      .showInformationMessage(
+        [message, ...detail].join(' '),
+        ...(detail.length > 1 ? [SHOW] : []),
+      )
+      .then((chosen) => {
+        if (chosen === SHOW) this.#channel.show(true);
+      });
+  }
+
   #refuse(refusal: ExportRefusal): void {
     void vscode.window.showWarningMessage(
       `${refusal.heading} ${refusal.remedy}`,
@@ -189,10 +356,10 @@ export class ProgramTransfer {
   }
 
   /** The conversation could not be held, or the toolchain refused the request. */
-  #failed(error: unknown): void {
+  #failed(error: unknown, attempted: string): void {
     if (error instanceof OperationFailed) {
       void vscode.window.showErrorMessage(
-        `The toolchain could not export this listing: ${error.message}`,
+        `The toolchain could not ${attempted}: ${error.message}`,
       );
       return;
     }
@@ -250,6 +417,55 @@ async function pickTarget(
     { placeHolder: `Export this listing for the ${machineName} as what?` },
   );
   return picked?.target;
+}
+
+/**
+ * What each machine can be read from, as the server reports its formats.
+ *
+ * One question per machine, which is why it is only ever asked of the handful
+ * a refusal named.
+ */
+async function formatsRead(
+  operations: Operations,
+  machines: Machine[],
+): Promise<Map<string, string>> {
+  const read = await Promise.all(
+    machines.map(async (machine) => {
+      const facts = await operations.info(machine.id);
+      return [
+        machine.id,
+        facts.binaryImports.map((format) => format.extension).join(', '),
+      ] as const;
+    }),
+  );
+  return new Map(read);
+}
+
+/**
+ * Which machine to read a file as, where its format did not settle one.
+ *
+ * A list of one is still asked about here, unlike the format picker, because
+ * the user is being told something as well as being asked: the file did not
+ * say what it was.
+ */
+async function pickMachine(
+  machines: Machine[],
+  formats: Map<string, string>,
+  claimed: boolean,
+): Promise<Machine | undefined> {
+  const picked = await vscode.window.showQuickPick(
+    machines.map((machine) => ({
+      label: machine.name,
+      description: formats.get(machine.id) ?? machine.description,
+      machine,
+    })),
+    {
+      placeHolder: claimed
+        ? "More than one machine's format matches this file. Read it as which?"
+        : "No machine's format matches this file. Read it as which machine?",
+    },
+  );
+  return picked?.machine;
 }
 
 /** Where the save dialog opens, and under what name. */

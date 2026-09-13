@@ -69,6 +69,33 @@ run**: you don't need its images to write a file for it.
 Both this and **Run this listing** are on the editor's title bar as well, on any
 BASIC listing.
 
+## Reading a machine's file
+
+**Basically: Read a machine's file into a new listing** goes the other way: pick
+a program off a tape image, a disc file or anything else a machine of this era
+saved, and the BASIC it holds opens as a new unsaved listing. Save it wherever
+you like — nothing you already have open is touched. The command needs no
+listing open, so it's there when you've just sat down with somebody else's
+program; it's on the title bar too, beside the other two.
+
+**The machine is the file's, not your setting's.** A `.p` is a ZX81 file
+wherever you open it, so the format decides and **Basically › Machine** doesn't
+come into it. Where a format belongs to more than one machine — or to none this
+toolchain knows — you're asked which to read it as, and told which machines
+could have claimed it. Nothing is guessed. The listing that opens carries a
+`#MACHINE` line naming what it was read as, so from the moment it appears it's
+checked against the machine it actually came from.
+
+Anything the conversion couldn't carry into text is put to you rather than
+dropped: the warnings the machine's own reader raised, any further files the
+format held, and the line the program used to start itself from. Where the file
+held machine code or data beside the BASIC, you're told what it held and offered
+a folder to keep it in, one file per block, and told what was written. Declining
+the folder loses nothing you asked for — the listing is already open.
+
+Tape audio isn't read, and a block of bytes is preserved as bytes rather than
+disassembled.
+
 ## Debugging a listing
 
 Start debugging the way you start debugging anything else — **Run and Debug**,

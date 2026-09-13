@@ -339,7 +339,7 @@ describe('a machine of the editor’s own', () => {
     );
   });
 
-  it('builds a listing into a file its machine loads, and hands back the bytes', async () => {
+  it('builds a listing into a file its machine loads, and reads it back', async () => {
     // Needs no machine and no images, which is why an export is offered for a
     // machine this copy cannot run. The format is named rather than inferred
     // from the file name, so that the one the user picked is the one built.
@@ -348,7 +348,19 @@ describe('a machine of the editor’s own', () => {
       facts.buildTargets.length > 0,
       'the server reports no format the ZX81 can be exported as',
     );
-    const target = facts.buildTargets[0];
+    // The one format that goes both ways, so what is built here is what is read
+    // back below. A machine whose formats and whose readers had parted company
+    // would export a file this extension could not then open.
+    const readable = new Set(
+      facts.binaryImports.map((format) => format.extension.replace(/^\./, '')),
+    );
+    const target = facts.buildTargets.find((candidate) =>
+      readable.has(candidate.fileExtension),
+    );
+    assert.ok(
+      target,
+      'no format the ZX81 is exported as is one it can be read back from',
+    );
 
     const outcome = await operations.build(
       'zx81',
@@ -374,6 +386,34 @@ describe('a machine of the editor’s own', () => {
         `${file.fileName} says it is ${file.size} bytes and is not`,
       );
     }
+
+    // The other direction, over the bytes the export just produced: the file's
+    // own name is all the machine that is named, since the format is what
+    // settles which machine a file belongs to.
+    const answer = await operations.convert(
+      outcome.files[0].base64,
+      outcome.files[0].fileName,
+    );
+    assert.equal(
+      answer.kind,
+      'converted',
+      `the server could not tell which machine a ${outcome.files[0].fileName} belongs to`,
+    );
+    assert.equal(answer.outcome.machine.id, 'zx81');
+    assert.match(
+      answer.outcome.source,
+      /PRINT "EXPORTED"/,
+      'the listing that came back is not the listing that went out',
+    );
+    // What makes the listing checked against the machine it came from rather
+    // than against whatever the user's listings default to. A server too old to
+    // write it answers `declared: false`, and this is the check that says so.
+    assert.equal(
+      answer.outcome.declared,
+      true,
+      'the pinned server writes no machine into a listing it recovered',
+    );
+    assert.match(answer.outcome.source, /#MACHINE zx81/);
   });
 
   it('reports a problem that stops a build rather than refusing the request', async () => {
