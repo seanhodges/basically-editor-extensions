@@ -76,8 +76,9 @@ such a variable takes the whole of its name.
 
 The extension SHALL offer, as commands the user can find by name, the things the
 protocol itself has no place for: choosing the machine listings are checked
-against, starting the language server again, and running the listing being
-edited so that its machine can be played.
+against, starting the language server again, running the listing being edited so
+that its machine can be played, and exporting the listing being edited as a file
+its machine loads.
 
 Choosing a machine SHALL be a choice among the machines the running server has,
 and SHALL be remembered against the project the user is working in where there
@@ -89,10 +90,14 @@ settings as they now stand, without the user restarting their editor. It SHALL
 NOT be required in order to run a listing, and SHALL NOT disturb a machine
 already being played.
 
-Running the listing SHALL open the panel `machine-panel` describes. The command
-SHALL be offered wherever a listing is being edited, and where that listing
-cannot be run the command SHALL say why rather than being absent without
-explanation.
+Running the listing SHALL open the panel `machine-panel` describes. Exporting it
+SHALL do what `program-transfer` describes. Each SHALL be offered wherever a
+listing is being edited, and where that listing cannot be run or exported the
+command SHALL say why rather than being absent without explanation.
+
+A command about the listing being edited MAY also be offered as a control on
+that listing, and where it is, the two SHALL be the same command described the
+same way — offering one is never a reason to stop offering the other by name.
 
 #### Scenario: Choosing a machine in a project
 
@@ -110,6 +115,18 @@ explanation.
 - **WHEN** the user looks for the extension's commands by name while editing a
   listing
 - **THEN** running the listing is among them
+
+#### Scenario: Finding the command to export a listing
+
+- **WHEN** the user looks for the extension's commands by name while editing a
+  listing
+- **THEN** exporting the listing is among them
+
+#### Scenario: A command offered both ways
+
+- **WHEN** a command is offered both by name and as a control on the listing
+- **THEN** both run the same command, and the control describes itself in the
+  command's own words
 
 #### Scenario: Restarting the server while a machine is being played
 
