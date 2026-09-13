@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 /**
- * What a user is told about exporting a listing, and what the manifest offers
- * them to ask with.
+ * What a user is told about moving a program between a listing and a machine's
+ * own file, and what the manifest offers them to ask with.
  *
  * The fourth suite needing neither a server nor a package, in the manner of
  * `machineStatus.test.mjs`: `handshake.test.mjs` establishes that the server
- * builds what it is asked to build, and what is left — which machine an export
- * is planned for, where each file goes and what the user is told — needs no
- * server and no editor to drive.
+ * builds what it is asked to build and reads it back, and what is left — which
+ * machine an export is planned for, where each file goes, which machine a file
+ * that settled none is offered as, and what the user is told of either — needs
+ * no server and no editor to drive.
  *
  * The machines and the outcomes are invented, because inventing them is what
  * lets a machine no copy can run appear in an export on a copy that can run
@@ -27,8 +28,19 @@ const clientDir = path.resolve(
 );
 
 // The compiled modules, so what is driven is what ships.
-const { planExport, refusalFor, reportFor, suggestedFileName } = await import(
+const {
+  blocksWritten,
+  importReportFor,
+  machinesToChooseFrom,
+  planExport,
+  refusalFor,
+  reportFor,
+  suggestedFileName,
+} = await import(
   pathToFileURL(path.join(clientDir, 'out', 'programTransfer.js')).href
+);
+const { Operations, OperationFailed } = await import(
+  pathToFileURL(path.join(clientDir, 'out', 'operations.js')).href
 );
 
 const manifest = JSON.parse(
@@ -205,7 +217,188 @@ describe('what the user is told an export came to', () => {
   });
 });
 
-describe('what the manifest offers the export with', () => {
+/** A conversion that got as far as the BASIC the file held. */
+const converted = (extra = {}) => ({
+  machine: { id: 'zx81', name: 'ZX81' },
+  source: '#MACHINE zx81\n10 PRINT "HI"',
+  warnings: [],
+  declared: true,
+  ...extra,
+});
+
+/** One conversation's worth of answers, over no child process at all. */
+const conversing = (answer) => {
+  const asked = [];
+  const operations = Object.create(Operations.prototype);
+  operations.call = async (operation, input) => {
+    asked.push({ operation, input });
+    return answer(input);
+  };
+  return { operations, asked };
+};
+
+const refusing = (message) => () => {
+  throw new OperationFailed(message, 'request');
+};
+
+describe('which machine a file is read as', () => {
+  it('asks about the machines a refusal named, and no others', () => {
+    assert.deepEqual(machinesToChooseFrom(MACHINES, ['ZX81']), [RUNNABLE]);
+    // Matched back by either name the server uses for a machine, since the
+    // choice is about to be sent again as the machine to read the file as.
+    assert.deepEqual(machinesToChooseFrom(MACHINES, ['bbcmicro']), [NEEDS_ROMS]);
+  });
+
+  it('offers every machine where no format claimed the file', () => {
+    assert.deepEqual(machinesToChooseFrom(MACHINES, []), MACHINES);
+  });
+
+  it('offers every machine rather than none it could not match back', () => {
+    // A name this client failed to match would otherwise drop a machine out of
+    // the list, and a list of none is a question with no answer to give.
+    assert.deepEqual(machinesToChooseFrom(MACHINES, ['Jupiter Ace']), MACHINES);
+  });
+
+  it('reads a format more than one machine claims as a question', async () => {
+    const { operations } = conversing(
+      refusing(
+        'more than one machine\'s format matches "game.tap": ZX Spectrum, ' +
+          'Amstrad CPC (-m <machine> picks one)',
+      ),
+    );
+    assert.deepEqual(await operations.convert('AAEC', 'game.tap'), {
+      kind: 'which-machine',
+      candidates: ['ZX Spectrum', 'Amstrad CPC'],
+    });
+  });
+
+  it('reads a format no machine claims as the same question', async () => {
+    const { operations } = conversing(
+      refusing(
+        'convert wants a machine: -m <machine> (basically machines lists ' +
+          'them), since no registered machine\'s binary format matches "game.bin"',
+      ),
+    );
+    assert.deepEqual(await operations.convert('AAEC', 'game.bin'), {
+      kind: 'which-machine',
+      candidates: [],
+    });
+  });
+
+  it('leaves every other refusal a refusal', async () => {
+    const { operations } = conversing(refusing('that file is not a ZX81 file'));
+    await assert.rejects(() => operations.convert('AAEC', 'game.p'), /not a ZX81 file/);
+  });
+
+  it('reads the file without the declaration a server has never heard of', async () => {
+    // A client never refuses over a version number, and an option is no
+    // different from a runtime in that: what is lost is said in words instead.
+    const { operations, asked } = conversing((input) => {
+      if (input.declareMachine) {
+        throw new OperationFailed('input has no property declareMachine', 'request');
+      }
+      return converted({ source: '10 PRINT "HI"' });
+    });
+    const answer = await operations.convert('AAEC', 'game.p');
+    assert.equal(answer.kind, 'converted');
+    assert.equal(answer.outcome.declared, false, 'an undeclared listing said it was declared');
+    assert.deepEqual(
+      asked.map((call) => call.input.declareMachine),
+      [true, undefined],
+      'the file was not read again without the declaration',
+    );
+  });
+
+  it('names the machine only where the file did not settle one', async () => {
+    const { operations, asked } = conversing(() => converted());
+    const answer = await operations.convert('AAEC', 'game.p');
+    assert.equal(answer.outcome.declared, true);
+    assert.equal(
+      asked[0].input.machine,
+      undefined,
+      'a machine was named over the file’s own format',
+    );
+    await operations.convert('AAEC', 'game.p', 'zxspectrum');
+    assert.equal(asked[1].input.machine, 'zxspectrum');
+  });
+});
+
+describe('what the user is told a file came to', () => {
+  it('says what was read and as which machine', () => {
+    const report = importReportFor(converted());
+    assert.match(report.message, /Read as a ZX81 listing, 2 lines of BASIC/);
+    assert.deepEqual(report.detail, []);
+    assert.deepEqual(report.blocks, []);
+    assert.equal(report.blocksAsk, null, 'a file holding no blocks asked for a folder');
+  });
+
+  it('puts the machine’s own warnings to the user, in its words', () => {
+    const report = importReportFor(
+      converted({ warnings: ['Line 40 held a character this machine has no name for.'] }),
+    );
+    assert.deepEqual(report.detail, [
+      'Line 40 held a character this machine has no name for.',
+    ]);
+  });
+
+  it('names what is not BASIC, and asks where to keep it', () => {
+    const report = importReportFor(
+      converted({
+        blocks: [
+          { id: 'b1', name: 'FONT', kind: 'memory', address: 0x3c00, base64: 'AAEC' },
+          { id: 'b2', name: 'PLOT', kind: 'code', address: 0x8000, base64: 'AAECAw==' },
+        ],
+      }),
+    );
+    assert.deepEqual(report.detail, [
+      'FONT: bytes, 3 bytes at 0x3C00.',
+      'PLOT: machine code, 4 bytes at 0x8000.',
+    ]);
+    // Written under the names the machine's own reader gave them, which are
+    // already safe as a file name's stem.
+    assert.deepEqual(report.blocks, [
+      { fileName: 'FONT.bin', base64: 'AAEC' },
+      { fileName: 'PLOT.bin', base64: 'AAECAw==' },
+    ]);
+    assert.match(report.blocksAsk, /Choose a folder/);
+  });
+
+  it('names what the format held and did not hand over', () => {
+    const report = importReportFor(
+      converted({
+        tapeFiles: [{ name: 'SCREEN', kind: 'bytes' }],
+        autoStart: 10,
+      }),
+    );
+    assert.deepEqual(report.detail, [
+      'The file also held "SCREEN" (bytes), which is not read here.',
+      'It started itself from line 10.',
+    ]);
+  });
+
+  it('says an older server’s listing does not declare its machine', () => {
+    const report = importReportFor(converted({ declared: false }));
+    assert.match(report.detail[0], /does not say it is for the ZX81/);
+    assert.match(report.detail[0], /#MACHINE zx81/);
+    // The same rule the export refusals keep: a setting named to the user has
+    // to be one this client contributes.
+    const contributed = Object.keys(manifest.contributes.configuration.properties);
+    for (const named of report.detail[0].match(/\bbasically(?:\.[a-zA-Z]+)+/g) ?? []) {
+      assert.ok(
+        contributed.includes(named),
+        `an import tells the user to set ${named}, which the client does not contribute`,
+      );
+    }
+  });
+
+  it('names every block it kept, since the user named only the folder', () => {
+    const said = blocksWritten(['/home/me/FONT.bin', '/home/me/PLOT.bin']);
+    assert.match(said.message, /Kept 2 blocks/);
+    assert.deepEqual(said.detail, ['/home/me/FONT.bin', '/home/me/PLOT.bin']);
+  });
+});
+
+describe('what the manifest offers these two commands with', () => {
   const commands = manifest.contributes.commands;
   const menus = manifest.contributes.menus;
 
@@ -220,6 +413,30 @@ describe('what the manifest offers the export with', () => {
     );
     assert.ok(palette, 'the export is offered by name whatever is being edited');
     assert.match(palette.when, /editorLangId == basically/);
+  });
+
+  it('offers reading a file by name whether or not a listing is open', () => {
+    const importProgram = commands.find(
+      (command) => command.command === 'basically.importProgram',
+    );
+    assert.ok(importProgram, 'the manifest contributes no command to read a file');
+    assert.equal(importProgram.category, 'Basically');
+    const palette = menus.commandPalette.find(
+      (entry) => entry.command === 'basically.importProgram',
+    );
+    assert.ok(palette, 'reading a file is not offered by name at all');
+    // The two entries differ because the questions differ: a user opening
+    // somebody else's program has nothing open to ask about, while a title bar
+    // is about the file beneath it.
+    assert.equal(
+      palette.when,
+      undefined,
+      'reading a file is offered by name only while a listing is open, and it needs none',
+    );
+    const toolbar = menus['editor/title'].find(
+      (entry) => entry.command === 'basically.importProgram',
+    );
+    assert.match(toolbar.when, /editorLangId == basically/);
   });
 
   it('names in a menu only commands the manifest contributes', () => {
@@ -261,7 +478,11 @@ describe('what the manifest offers the export with', () => {
     const toolbar = menus['editor/title'] ?? [];
     assert.deepEqual(
       toolbar.map((entry) => entry.command),
-      ['basically.runListing', 'basically.exportListing'],
+      [
+        'basically.runListing',
+        'basically.exportListing',
+        'basically.importProgram',
+      ],
     );
     for (const entry of toolbar) {
       assert.match(

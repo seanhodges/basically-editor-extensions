@@ -30,7 +30,7 @@
   "basically": {
     "server": {
       "package": "@ba.sical.ly/cli",
-      "version": "0.1.17"
+      "version": "0.1.18"
     }
   },
   "activationEvents": [
@@ -152,6 +152,12 @@
         "title": "Export this listing as a file its machine loads",
         "category": "Basically",
         "icon": "$(desktop-download)"
+      },
+      {
+        "command": "basically.importProgram",
+        "title": "Read a machine's file into a new listing",
+        "category": "Basically",
+        "icon": "$(file-binary)"
       }
     ],
     "mcpServerDefinitionProviders": [
@@ -169,6 +175,9 @@
         {
           "command": "basically.exportListing",
           "when": "editorLangId == basically"
+        },
+        {
+          "command": "basically.importProgram"
         }
       ],
       "editor/title": [
@@ -181,6 +190,11 @@
           "command": "basically.exportListing",
           "when": "editorLangId == basically",
           "group": "navigation@2"
+        },
+        {
+          "command": "basically.importProgram",
+          "when": "editorLangId == basically",
+          "group": "navigation@3"
         }
       ]
     },
