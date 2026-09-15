@@ -30,13 +30,14 @@
   "basically": {
     "server": {
       "package": "@ba.sical.ly/cli",
-      "version": "0.1.18"
+      "version": "0.1.19"
     }
   },
   "activationEvents": [
     "onLanguage:basically",
     "onDebugResolve:basically",
-    "onView:basically.variables"
+    "onView:basically.variables",
+    "onView:basically.memory"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -121,6 +122,13 @@
           "name": "Basically variables",
           "icon": "$(symbol-variable)",
           "contextualTitle": "Basically variables"
+        },
+        {
+          "id": "basically.memory",
+          "name": "Basically memory",
+          "type": "webview",
+          "icon": "$(circuit-board)",
+          "contextualTitle": "Basically memory"
         }
       ]
     },

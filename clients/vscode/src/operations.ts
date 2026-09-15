@@ -144,6 +144,23 @@ export interface ViewReport {
   problem: string | null;
 }
 
+/**
+ * What `map` answers: an address a web view can be pointed at to watch memory.
+ *
+ * A third thing to point a frame at, and the only one of the three that is not
+ * a display: a map shows where in memory the program is living and which
+ * addresses the machine is touching, so asking for one ends neither a view nor
+ * a play channel and neither of them ends it.
+ */
+export interface MapReport {
+  /** Where the map is served, or null where there is nowhere to serve one. */
+  address: string | null;
+  /** Whether a map was already open, and this is that one. */
+  already: boolean;
+  /** Why there is no address, when there is none. */
+  problem: string | null;
+}
+
 /** One format a machine's programs can be built into, as the server names it. */
 export interface BuildTarget {
   id: string;
@@ -630,6 +647,16 @@ export class Operations {
   /** The address the machine can be played at. */
   play(): Promise<PlayReport> {
     return this.call<PlayReport>('play', {});
+  }
+
+  /**
+   * The address the machine's memory can be watched at.
+   *
+   * Only read, and never a display: a machine that is being played goes on
+   * being played, and a map asked for twice is the map already open.
+   */
+  map(): Promise<MapReport> {
+    return this.call<MapReport>('map', {});
   }
 
   /**

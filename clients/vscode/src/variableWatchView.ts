@@ -16,6 +16,7 @@
 import * as vscode from 'vscode';
 
 import { MachinePanel } from './machinePanel';
+import type { MachineWatcher } from './programWatchers';
 import {
   VariableWatch,
   contentFor,
@@ -24,18 +25,6 @@ import {
 } from './variableWatch';
 
 export const VARIABLES_VIEW = 'basically.variables';
-
-/**
- * What a debug session tells about where its program got to.
- *
- * Narrow on purpose: a session reports, and what it reports to is none of its
- * business. It is what lets the debug registration be independent of whether
- * this view was registered at all.
- */
-export interface ProgramWatcher {
-  moved(): void;
-  released(): void;
-}
 
 /**
  * How often a played machine is read, in milliseconds.
@@ -56,7 +45,7 @@ type Node =
   | { kind: 'message'; text: string };
 
 export class VariableWatchView
-  implements vscode.TreeDataProvider<Node>, ProgramWatcher
+  implements vscode.TreeDataProvider<Node>, MachineWatcher
 {
   #changed = new vscode.EventEmitter<void>();
   readonly onDidChangeTreeData = this.#changed.event;
